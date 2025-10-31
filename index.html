@@ -1,7 +1,7 @@
 <!DOCTYPE html><html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <title>CSV Column Remover + PPC Assist Filter</title>
+  <title>CSV Column Remover + Conditional PPC Assist Filter</title>
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <style>
     :root {
@@ -65,8 +65,13 @@
 .dropzone input[type="file"] { display: none; }
 .dz-title { font-weight: 700; margin-bottom: 6px; }
 .dz-sub { font-size: 13px; color: var(--muted); }
-.config { display: grid; gap: 8px; font-size: 14px; }
-code { background: var(--panel-bright); border: 1px solid var(--border); color: #d6e4ff; padding: 2px 6px; border-radius: 6px; }.status {
+
+.config { display: grid; gap: 10px; font-size: 14px; }
+.config-row { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+select { background: #0f1830; color: var(--text); border: 1px solid var(--border); border-radius: 6px; padding: 6px 8px; }
+code { background: var(--panel-bright); border: 1px solid var(--border); color: #d6e4ff; padding: 2px 6px; border-radius: 6px; }
+
+.status {
   margin-top: 12px;
   font-size: 14px;
   line-height: 1.45;
@@ -75,7 +80,7 @@ code { background: var(--panel-bright); border: 1px solid var(--border); color: 
   border-radius: 8px;
   padding: 10px 12px;
   color: var(--muted);
-  max-height: 220px;
+  max-height: 260px;
   overflow: auto;
   white-space: pre-wrap;
 }
@@ -118,8 +123,8 @@ button[disabled] { opacity: 0.6; cursor: not-allowed; filter: grayscale(0.2); }
 <body>
   <div class="app">
     <header>
-      <h1>CSV Column Remover + PPC Assist Filter</h1>
-      <p>Removes columns H, I, J, K, L, M, N, O, P, Q, U, V, W, X, Y, AA and keeps only rows where PPC Assist = "Y". All processing happens in your browser.</p>
+      <h1>CSV Column Remover + Conditional PPC Assist Filter</h1>
+      <p>Removes specified columns and filters by PPC Assist. All processing happens in your browser.</p>
     </header>
     <main>
       <div class="grid">
@@ -140,20 +145,18 @@ button[disabled] { opacity: 0.6; cursor: not-allowed; filter: grayscale(0.2); }
     <section class="card">
       <h2>2) Settings (preconfigured)</h2>
       <div class="config">
-        <div>
-          <span class="pill">
-            Drop letters
-            <span class="mono">H, I, J, K, L, M, N, O, P, Q, U, V, W, X, Y, AA</span>
-          </span>
+        <div class="config-row">
+          <span class="pill">Drop letters <span class="mono">H, I, J, K, L, M, N, O, P, Q, U, V, W, X, Y, AA</span></span>
         </div>
-        <div>
-          <span class="pill">
-            Filter
-            <span class="mono">Keep rows where "PPC Assist" == "Y"</span>
-          </span>
+        <div class="config-row">
+          <span>When PPC Assist would be removed, filter first and:</span>
+          <select id="ppc-first-mode">
+            <option value="remove" selected>Remove rows where PPC Assist == "Y"</option>
+            <option value="keep">Keep rows where PPC Assist == "Y"</option>
+          </select>
         </div>
         <div class="small">
-          Note: If "PPC Assist" is among the columns to be deleted, filtering runs first, then columns are dropped.
+          Otherwise (when PPC Assist remains), columns are dropped first, then rows are kept where PPC Assist == "Y".
         </div>
       </div>
     </section>
@@ -164,6 +167,7 @@ button[disabled] { opacity: 0.6; cursor: not-allowed; filter: grayscale(0.2); }
     const LETTERS_TO_DROP = ['H','I','J','K','L','M','N','O','P','Q','U','V','W','X','Y','AA'];
     const FILTER_HEADER_NAME = 'PPC Assist';
     const FILTER_VALUE = 'Y';
+    const PPC_LETTER_FALLBACK = 'Z'; // Used only before dropping, if header name isn't found
 
     function excelColToZeroIndex(col) {
       let idx = 0;
@@ -183,12 +187,13 @@ button[disabled] { opacity: 0.6; cursor: not-allowed; filter: grayscale(0.2); }
     const processBtn = document.getElementById('process-btn');
     const downloadLink = document.getElementById('download-link');
     const resetBtn = document.getElementById('reset-btn');
+    const modeSelect = document.getElementById('ppc-first-mode');
 
     let selectedFile = null;
     let cleanedCsvBlobUrl = null;
 
     function setStatus(msg, append = false) {
-      statusEl.textContent = append ? (statusEl.textContent + '\n' + msg) : msg;
+      statusEl.textContent = append ? (statusEl.textContent + '\\n' + msg) : msg;
     }
 
     function resetState() {
@@ -213,15 +218,13 @@ button[disabled] { opacity: 0.6; cursor: not-allowed; filter: grayscale(0.2); }
         return;
       }
       selectedFile = file;
-      setStatus(`Selected: ${file.name} (${(file.size/1024).toFixed(1)} KB)`);
+      setStatus(\`Selected: \${file.name} (\${(file.size/1024).toFixed(1)} KB)\`);
       processBtn.disabled = false;
       downloadLink.style.display = 'none';
     }
 
     dz.addEventListener('click', () => fileInput.click());
-    dz.addEventListener('keypress', (e) => {
-      if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); fileInput.click(); }
-    });
+    dz.addEventListener('keypress', (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); fileInput.click(); }});
     dz.addEventListener('dragover', (e) => { e.preventDefault(); dz.classList.add('dragover'); });
     dz.addEventListener('dragleave', () => dz.classList.remove('dragover'));
     dz.addEventListener('drop', (e) => { e.preventDefault(); dz.classList.remove('dragover'); handleFiles(e.dataTransfer.files); });
@@ -246,21 +249,24 @@ button[disabled] { opacity: 0.6; cursor: not-allowed; filter: grayscale(0.2); }
       });
     }
 
-    function filterRowsByColumnValue(rows, colIdx, value) {
+    function filterRows(rows, colIdx, value, mode) {
+      // mode: 'keep' -> keep rows where cell == value, 'remove' -> keep rows where cell != value
       if (rows.length === 0 || colIdx < 0) return rows;
       const header = rows[0];
-      const kept = [header];
+      const out = [header];
       for (let r = 1; r < rows.length; r++) {
         const row = rows[r];
         if (!Array.isArray(row)) continue;
         const cellVal = trimOrEmpty(row[colIdx]);
-        if (cellVal === value) kept.push(row);
+        const match = (cellVal === value);
+        if ((mode === 'keep' && match) || (mode === 'remove' && !match)) {
+          out.push(row);
+        }
       }
-      return kept;
+      return out;
     }
 
     function removeCompletelyEmptyTrailingRows(rows) {
-      // Remove trailing rows that are entirely empty or only whitespace
       let end = rows.length - 1;
       while (end >= 1) {
         const row = rows[end];
@@ -282,13 +288,13 @@ button[disabled] { opacity: 0.6; cursor: not-allowed; filter: grayscale(0.2); }
 
         const parsed = Papa.parse(text, {
           dynamicTyping: false,
-          skipEmptyLines: 'greedy' // drop empty lines that contain only delimiters/whitespace
+          skipEmptyLines: 'greedy'
         });
 
         if (parsed.errors && parsed.errors.length) {
           setStatus(
-            `CSV parse warnings: ${parsed.errors.length}\n` +
-            parsed.errors.slice(0,3).map(e => `- Row ${e.row}: ${e.message}`).join('\n'),
+            \`CSV parse warnings: \${parsed.errors.length}\\n\` +
+            parsed.errors.slice(0,3).map(e => \`- Row \${e.row}: \${e.message}\`).join('\\n'),
             true
           );
         }
@@ -302,33 +308,50 @@ button[disabled] { opacity: 0.6; cursor: not-allowed; filter: grayscale(0.2); }
 
         const originalRowCount = rows.length;
         const header = rows[0];
-        const ppcIdxOriginal = findHeaderIndex(header, FILTER_HEADER_NAME);
+
+        // Find PPC Assist index before dropping
+        let ppcIdxOriginal = findHeaderIndex(header, FILTER_HEADER_NAME);
+        if (ppcIdxOriginal === -1 && PPC_LETTER_FALLBACK) {
+          const fallbackIdx = excelColToZeroIndex(PPC_LETTER_FALLBACK);
+          if (fallbackIdx >= 0 && fallbackIdx < header.length) {
+            ppcIdxOriginal = fallbackIdx;
+            setStatus(\`Header "\${FILTER_HEADER_NAME}" not found; falling back to column \${PPC_LETTER_FALLBACK} (index \${fallbackIdx}).\`, true);
+          } else {
+            setStatus(\`Header "\${FILTER_HEADER_NAME}" not found, and fallback column \${PPC_LETTER_FALLBACK} is out of range.\`, true);
+          }
+        }
+
         const willDropPpc = ppcIdxOriginal >= 0 && DROP_INDICES_0.includes(ppcIdxOriginal);
+        const firstMode = modeSelect.value; // 'remove' or 'keep'
 
         if (ppcIdxOriginal >= 0 && willDropPpc) {
-          setStatus('Filtering by "PPC Assist" before dropping columns (it is in the drop list)…', true);
-          rows = filterRowsByColumnValue(rows, ppcIdxOriginal, FILTER_VALUE);
+          // Filter first using original index, according to selected mode
+          const modeDesc = firstMode === 'remove'
+            ? 'Removing rows where PPC Assist == "Y" before dropping columns…'
+            : 'Keeping rows where PPC Assist == "Y" before dropping columns…';
+          setStatus(modeDesc, true);
+          rows = filterRows(rows, ppcIdxOriginal, FILTER_VALUE, firstMode);
           rows = dropColumns(rows, DROP_INDICES_0);
         } else {
+          // Drop columns first, then keep rows where PPC Assist == 'Y'
           rows = dropColumns(rows, DROP_INDICES_0);
           const newHeader = rows[0];
           const ppcIdxAfter = findHeaderIndex(newHeader, FILTER_HEADER_NAME);
           if (ppcIdxAfter === -1) {
             setStatus('Warning: "PPC Assist" column not found after dropping columns; no row filtering applied.', true);
           } else {
-            setStatus('Filtering rows where PPC Assist == "Y"…', true);
-            rows = filterRowsByColumnValue(rows, ppcIdxAfter, FILTER_VALUE);
+            setStatus('Keeping rows where PPC Assist == "Y"…', true);
+            rows = filterRows(rows, ppcIdxAfter, FILTER_VALUE, 'keep');
           }
         }
 
         rows = removeCompletelyEmptyTrailingRows(rows);
 
         const keptRows = rows.length;
-        setStatus(`Rows before: ${originalRowCount} | after: ${keptRows}`, true);
+        setStatus(\`Rows before: \${originalRowCount} | after: \${keptRows}\`, true);
 
         const csvText = Papa.unparse(rows);
-        // Prepend UTF-8 BOM for best Excel compatibility
-        const BOM = new Uint8Array([0xEF, 0xBB, 0xBF]);
+        const BOM = new Uint8Array([0xEF, 0xBB, 0xBF]); // Excel-friendly
         const blob = new Blob([BOM, csvText], { type: 'text/csv;charset=utf-8' });
 
         if (cleanedCsvBlobUrl) URL.revokeObjectURL(cleanedCsvBlobUrl);
