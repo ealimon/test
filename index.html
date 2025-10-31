@@ -44,37 +44,13 @@
       background: linear-gradient(90deg, rgba(79,118,253,0.15), rgba(56,189,248,0.15));
       border-bottom: 1px solid var(--border);
     }
-    header h1 {
-      margin: 0 0 6px;
-      font-size: 20px;
-      font-weight: 700;
-      letter-spacing: 0.2px;
-    }
-    header p {
-      margin: 0;
-      color: var(--muted);
-      font-size: 14px;
-    }
+    header h1 { margin: 0 0 6px; font-size: 20px; font-weight: 700; letter-spacing: 0.2px; }
+    header p { margin: 0; color: var(--muted); font-size: 14px; }
     main { padding: 24px; }
-    .grid {
-      display: grid;
-      grid-template-columns: 1.2fr 1fr;
-      gap: 20px;
-    }
-    @media (max-width: 980px) {
-      .grid { grid-template-columns: 1fr; }
-    }
-    .card {
-      background: linear-gradient(180deg, var(--panel), #0d1625);
-      border: 1px solid var(--border);
-      border-radius: 12px;
-      padding: 16px;
-    }
-    .card h2 {
-      margin: 0 0 10px;
-      font-size: 16px;
-      font-weight: 700;
-    }
+    .grid { display: grid; grid-template-columns: 1.2fr 1fr; gap: 20px; }
+    @media (max-width: 980px) { .grid { grid-template-columns: 1fr; } }
+    .card { background: linear-gradient(180deg, var(--panel), #0d1625); border: 1px solid var(--border); border-radius: 12px; padding: 16px; }
+    .card h2 { margin: 0 0 10px; font-size: 16px; font-weight: 700; }
     .muted { color: var(--muted); }.dropzone {
   border: 2px dashed #2a3b5e;
   border-radius: 12px;
@@ -85,34 +61,12 @@
   cursor: pointer;
   user-select: none;
 }
-.dropzone.dragover {
-  border-color: var(--accent);
-  background: rgba(79, 118, 253, 0.12);
-}
+.dropzone.dragover { border-color: var(--accent); background: rgba(79, 118, 253, 0.12); }
 .dropzone input[type="file"] { display: none; }
-.dz-title {
-  font-weight: 700;
-  margin-bottom: 6px;
-}
-.dz-sub {
-  font-size: 13px;
-  color: var(--muted);
-}
-
-.config {
-  display: grid;
-  gap: 8px;
-  font-size: 14px;
-}
-code {
-  background: var(--panel-bright);
-  border: 1px solid var(--border);
-  color: #d6e4ff;
-  padding: 2px 6px;
-  border-radius: 6px;
-}
-
-.status {
+.dz-title { font-weight: 700; margin-bottom: 6px; }
+.dz-sub { font-size: 13px; color: var(--muted); }
+.config { display: grid; gap: 8px; font-size: 14px; }
+code { background: var(--panel-bright); border: 1px solid var(--border); color: #d6e4ff; padding: 2px 6px; border-radius: 6px; }.status {
   margin-top: 12px;
   font-size: 14px;
   line-height: 1.45;
@@ -126,12 +80,7 @@ code {
   white-space: pre-wrap;
 }
 
-.actions {
-  display: flex;
-  gap: 10px;
-  margin-top: 14px;
-  flex-wrap: wrap;
-}
+.actions { display: flex; gap: 10px; margin-top: 14px; flex-wrap: wrap; }
 button, .btn {
   appearance: none;
   border: 1px solid var(--border);
@@ -143,25 +92,12 @@ button, .btn {
   cursor: pointer;
   transition: transform 0.02s ease, border-color 0.2s ease, background 0.2s ease;
 }
-button:hover, .btn:hover {
-  border-color: #345;
-  background: linear-gradient(180deg, #1a2947, #15223b);
-}
+button:hover, .btn:hover { border-color: #345; background: linear-gradient(180deg, #1a2947, #15223b); }
 button:active, .btn:active { transform: translateY(1px); }
-button.primary {
-  background: linear-gradient(180deg, #2a4ff0, #2244d4);
-  border-color: #3050ff;
-}
+button.primary { background: linear-gradient(180deg, #2a4ff0, #2244d4); border-color: #3050ff; }
 button.primary:hover { background: linear-gradient(180deg, #3358ff, #2649db); }
-button.success {
-  background: linear-gradient(180deg, #1e8449, #176d3b);
-  border-color: #29a35a;
-}
-button[disabled] {
-  opacity: 0.6;
-  cursor: not-allowed;
-  filter: grayscale(0.2);
-}
+button.success { background: linear-gradient(180deg, #1e8449, #176d3b); border-color: #29a35a; }
+button[disabled] { opacity: 0.6; cursor: not-allowed; filter: grayscale(0.2); }
 
 .pill {
   display: inline-flex;
@@ -177,14 +113,13 @@ button[disabled] {
 }
 .mono { font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace; }
 .small { font-size: 12px; color: var(--muted); }
-.warn { color: #fbbf24; }
   </style>
 </head>
 <body>
   <div class="app">
     <header>
       <h1>CSV Column Remover + PPC Assist Filter</h1>
-      <p>Removes specific columns and keeps only rows where PPC Assist = "Y". All processing happens in your browser.</p>
+      <p>Removes columns H, I, J, K, L, M, N, O, P, Q, U, V, W, X, Y, AA and keeps only rows where PPC Assist = "Y". All processing happens in your browser.</p>
     </header>
     <main>
       <div class="grid">
@@ -218,19 +153,7 @@ button[disabled] {
           </span>
         </div>
         <div class="small">
-          1-based indices:
-          <span id="indices-1based" class="mono"></span>
-        </div>
-        <div class="small">
-          0-based indices:
-          <span id="indices-0based" class="mono"></span>
-        </div>
-        <div class="muted small">
-          Notes:
-          <ul>
-            <li>Filtering uses the header "PPC Assist" (exact match, trimmed). Value match is "Y" (trimmed).</li>
-            <li>If "PPC Assist" would be deleted by the column removal, the tool filters first, then drops columns, and will inform you.</li>
-          </ul>
+          Note: If "PPC Assist" is among the columns to be deleted, filtering runs first, then columns are dropped.
         </div>
       </div>
     </section>
@@ -252,26 +175,20 @@ button[disabled] {
       return idx - 1; // 0-based
     }
     const DROP_INDICES_0 = LETTERS_TO_DROP.map(excelColToZeroIndex);
-    const DROP_INDICES_1 = DROP_INDICES_0.map(i => i + 1);
 
+    // UI elements
     const dz = document.getElementById('dropzone');
     const fileInput = document.getElementById('file-input');
     const statusEl = document.getElementById('status');
     const processBtn = document.getElementById('process-btn');
     const downloadLink = document.getElementById('download-link');
     const resetBtn = document.getElementById('reset-btn');
-    const i0 = document.getElementById('indices-0based');
-    const i1 = document.getElementById('indices-1based');
-
-    i0.textContent = DROP_INDICES_0.join(', ');
-    i1.textContent = DROP_INDICES_1.join(', ');
 
     let selectedFile = null;
     let cleanedCsvBlobUrl = null;
-    let outputFilename = 'cleaned.csv';
 
     function setStatus(msg, append = false) {
-      statusEl.textContent = append ? (statusEl.textContent + '\\n' + msg) : msg;
+      statusEl.textContent = append ? (statusEl.textContent + '\n' + msg) : msg;
     }
 
     function resetState() {
@@ -280,7 +197,6 @@ button[disabled] {
         URL.revokeObjectURL(cleanedCsvBlobUrl);
         cleanedCsvBlobUrl = null;
       }
-      outputFilename = 'cleaned.csv';
       fileInput.value = '';
       setStatus('Waiting for file…');
       processBtn.disabled = true;
@@ -297,18 +213,14 @@ button[disabled] {
         return;
       }
       selectedFile = file;
-      outputFilename = 'cleaned-' + (file.name || 'output.csv');
-      setStatus(\`Selected: \${file.name} (\${(file.size/1024).toFixed(1)} KB)\`);
+      setStatus(`Selected: ${file.name} (${(file.size/1024).toFixed(1)} KB)`);
       processBtn.disabled = false;
       downloadLink.style.display = 'none';
     }
 
     dz.addEventListener('click', () => fileInput.click());
     dz.addEventListener('keypress', (e) => {
-      if (e.key === 'Enter' || e.key === ' ') {
-        e.preventDefault();
-        fileInput.click();
-      }
+      if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); fileInput.click(); }
     });
     dz.addEventListener('dragover', (e) => { e.preventDefault(); dz.classList.add('dragover'); });
     dz.addEventListener('dragleave', () => dz.classList.remove('dragover'));
@@ -316,9 +228,7 @@ button[disabled] {
     fileInput.addEventListener('change', (e) => handleFiles(e.target.files));
     resetBtn.addEventListener('click', resetState);
 
-    function trimOrEmpty(v) {
-      return (v == null) ? '' : String(v).trim();
-    }
+    function trimOrEmpty(v) { return (v == null) ? '' : String(v).trim(); }
 
     function findHeaderIndex(headerRow, name) {
       const target = trimOrEmpty(name);
@@ -329,13 +239,11 @@ button[disabled] {
     }
 
     function dropColumns(rows, dropIndices0) {
-      // For each row, drop indices that exist in that row length
-      const out = rows.map(row => {
+      return rows.map(row => {
         if (!Array.isArray(row)) return row;
         const dropSet = new Set(dropIndices0.filter(i => i >= 0 && i < row.length));
         return row.filter((_, idx) => !dropSet.has(idx));
       });
-      return out;
     }
 
     function filterRowsByColumnValue(rows, colIdx, value) {
@@ -351,6 +259,18 @@ button[disabled] {
       return kept;
     }
 
+    function removeCompletelyEmptyTrailingRows(rows) {
+      // Remove trailing rows that are entirely empty or only whitespace
+      let end = rows.length - 1;
+      while (end >= 1) {
+        const row = rows[end];
+        const nonEmpty = Array.isArray(row) && row.some(v => trimOrEmpty(v) !== '');
+        if (nonEmpty) break;
+        end--;
+      }
+      return rows.slice(0, end + 1);
+    }
+
     processBtn.addEventListener('click', async () => {
       if (!selectedFile) return;
       setStatus('Reading file…');
@@ -362,25 +282,20 @@ button[disabled] {
 
         const parsed = Papa.parse(text, {
           dynamicTyping: false,
-          skipEmptyLines: false
+          skipEmptyLines: 'greedy' // drop empty lines that contain only delimiters/whitespace
         });
 
         if (parsed.errors && parsed.errors.length) {
           setStatus(
-            \`CSV parse warnings: \${parsed.errors.length}\\n\` +
-            parsed.errors.slice(0,3).map(e => \`- Row \${e.row}: \${e.message}\`).join('\\n'),
+            `CSV parse warnings: ${parsed.errors.length}\n` +
+            parsed.errors.slice(0,3).map(e => `- Row ${e.row}: ${e.message}`).join('\n'),
             true
           );
         }
 
         let rows = parsed.data;
-        if (!Array.isArray(rows) || rows.length === 0) {
-          setStatus('No rows found in CSV.');
-          processBtn.disabled = false;
-          return;
-        }
-        if (!Array.isArray(rows[0])) {
-          setStatus('Unexpected format: first row is not a list of values.');
+        if (!Array.isArray(rows) || rows.length === 0 || !Array.isArray(rows[0])) {
+          setStatus('No usable rows found in CSV.');
           processBtn.disabled = false;
           return;
         }
@@ -388,52 +303,34 @@ button[disabled] {
         const originalRowCount = rows.length;
         const header = rows[0];
         const ppcIdxOriginal = findHeaderIndex(header, FILTER_HEADER_NAME);
-        if (ppcIdxOriginal === -1) {
-          setStatus(\`Header "\${FILTER_HEADER_NAME}" not found. Unable to filter by "\${FILTER_HEADER_NAME}".\`, true);
-        } else {
-          setStatus(\`Found "\${FILTER_HEADER_NAME}" at index \${ppcIdxOriginal} (0-based)\`, true);
-        }
+        const willDropPpc = ppcIdxOriginal >= 0 && DROP_INDICES_0.includes(ppcIdxOriginal);
 
-        // Determine whether PPC Assist would be dropped
-        const willDropPPC = ppcIdxOriginal >= 0 && DROP_INDICES_0.includes(ppcIdxOriginal);
-
-        // Pipeline:
-        // - If PPC column would be dropped, filter first by original index, then drop.
-        // - Otherwise, drop columns first, then find PPC column again and filter.
-        if (ppcIdxOriginal >= 0 && willDropPPC) {
-          setStatus('Note: "PPC Assist" is slated for deletion by the drop list; filtering will run BEFORE dropping columns.', true);
+        if (ppcIdxOriginal >= 0 && willDropPpc) {
+          setStatus('Filtering by "PPC Assist" before dropping columns (it is in the drop list)…', true);
           rows = filterRowsByColumnValue(rows, ppcIdxOriginal, FILTER_VALUE);
           rows = dropColumns(rows, DROP_INDICES_0);
         } else {
           rows = dropColumns(rows, DROP_INDICES_0);
-          if (ppcIdxOriginal === -1) {
-            // Try finding PPC Assist after drop (maybe renamed or trimmed)
-            const newHeader = rows[0];
-            const ppcIdxAfter = findHeaderIndex(newHeader, FILTER_HEADER_NAME);
-            if (ppcIdxAfter === -1) {
-              setStatus('Warning: "PPC Assist" not found after dropping columns; no row filtering applied.', true);
-            } else {
-              setStatus(\`Filtering rows where "\${FILTER_HEADER_NAME}" == "\${FILTER_VALUE}" (index \${ppcIdxAfter})…\`, true);
-              rows = filterRowsByColumnValue(rows, ppcIdxAfter, FILTER_VALUE);
-            }
+          const newHeader = rows[0];
+          const ppcIdxAfter = findHeaderIndex(newHeader, FILTER_HEADER_NAME);
+          if (ppcIdxAfter === -1) {
+            setStatus('Warning: "PPC Assist" column not found after dropping columns; no row filtering applied.', true);
           } else {
-            // PPC existed and is not being dropped; find its new index post-drop
-            const newHeader = rows[0];
-            const ppcIdxAfter = findHeaderIndex(newHeader, FILTER_HEADER_NAME);
-            if (ppcIdxAfter === -1) {
-              setStatus('Warning: "PPC Assist" not found after dropping columns; no row filtering applied.', true);
-            } else {
-              setStatus(\`Filtering rows where "\${FILTER_HEADER_NAME}" == "\${FILTER_VALUE}" (index \${ppcIdxAfter})…\`, true);
-              rows = filterRowsByColumnValue(rows, ppcIdxAfter, FILTER_VALUE);
-            }
+            setStatus('Filtering rows where PPC Assist == "Y"…', true);
+            rows = filterRowsByColumnValue(rows, ppcIdxAfter, FILTER_VALUE);
           }
         }
 
-        const keptRows = rows.length;
-        setStatus(\`Rows before: \${originalRowCount} | after: \${keptRows}\`, true);
+        rows = removeCompletelyEmptyTrailingRows(rows);
 
-        const cleanedCsv = Papa.unparse(rows);
-        const blob = new Blob([cleanedCsv], { type: 'text/csv;charset=utf-8' });
+        const keptRows = rows.length;
+        setStatus(`Rows before: ${originalRowCount} | after: ${keptRows}`, true);
+
+        const csvText = Papa.unparse(rows);
+        // Prepend UTF-8 BOM for best Excel compatibility
+        const BOM = new Uint8Array([0xEF, 0xBB, 0xBF]);
+        const blob = new Blob([BOM, csvText], { type: 'text/csv;charset=utf-8' });
+
         if (cleanedCsvBlobUrl) URL.revokeObjectURL(cleanedCsvBlobUrl);
         cleanedCsvBlobUrl = URL.createObjectURL(blob);
 
