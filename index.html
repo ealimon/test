@@ -1,145 +1,456 @@
-/**
-Google Sheets automation:
-
-
-Deletes columns by Excel letters (e.g., H, AA)
-
-
-
-
-Sorts the data (by letters or header names)
-
-
-
-
-Colors the header and/or specific data rows
-
-
-
-Setup:
-
-
-Extensions > Apps Script > paste this file (Code.gs)
-
-
-
-
-Edit CONFIG as needed
-
-
-
-
-Refresh the sheet; use menu: Process > Cleanup & Sort
-*/
-
-
-const CONFIG = {
-// Leave blank to use the active sheet, or specify an exact name:
-sheetName: "",// Columns to delete by Excel letters (current positions).
-// Note: This acts on the current sheet layout. Run once per imported CSV.
-dropColumnsLetters: ["H","I","J","K","L","M","N","O","P","Q","U","V","W","X","Y","AA"],// Whether the first row is a header row.
-hasHeader: true,// Sorting instructions (in priority order).
-// You can use column letters (e.g., 'B') or header names (e.g., 'Date').
-// order: 'asc' or 'desc'
-sortBy: [
-// { col: "B", order: "asc" },
-// { col: "Date", order: "desc" },
-],// Appearance
-highlight: {
-header: true,           // color the header row (if hasHeader)
-rows: [],               // data rows to color, 1-based (e.g., [1,3] colors first and third data rows)
-color: "#FFF2CC"        // hex color
-},// Clear all existing backgrounds before re-coloring
-clearAllBackgrounds: true,// Freeze the header row for convenience
-freezeHeader: true
-};function onOpen() {
-SpreadsheetApp.getUi()
-.createMenu("Process")
-.addItem("Cleanup & Sort", "runCleanup")
-.addToUi();
-}function runCleanup() {
-const ss = SpreadsheetApp.getActive();
-const sheet = CONFIG.sheetName
-? ss.getSheetByName(CONFIG.sheetName)
-: ss.getActiveSheet();if (!sheet) {
-throw new Error("Sheet not found: " + CONFIG.sheetName);
-}// 1) Delete requested columns (right-to-left to avoid shifting)
-if (CONFIG.dropColumnsLetters && CONFIG.dropColumnsLetters.length) {
-removeColumnsByLetters(sheet, CONFIG.dropColumnsLetters);
-}// 2) Sort the data range (excluding header, if present)
-const lastRow = sheet.getLastRow();
-const lastCol = sheet.getLastColumn();
-if (lastRow === 0 || lastCol === 0) {
-SpreadsheetApp.getUi().alert("Nothing to process: the sheet is empty.");
-return;
-}if (CONFIG.sortBy && CONFIG.sortBy.length) {
-const sortSpecs = buildSortSpecs(sheet, CONFIG.sortBy, CONFIG.hasHeader);
-const startRow = CONFIG.hasHeader ? 2 : 1;
-const numRows = Math.max(0, lastRow - startRow + 1);
-if (numRows > 1) {
-sheet.getRange(startRow, 1, numRows, lastCol).sort(sortSpecs);
+<!DOCTYPE html><html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>CSV Column Remover + PPC Assist Filter</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <style>
+    :root {
+      --bg: #0b1220;
+      --panel: #101827;
+      --panel-bright: #1a2233;
+      --text: #e6eef8;
+      --muted: #9fb2c8;
+      --accent: #4f76fd;
+      --accent-2: #38bdf8;
+      --ok: #22c55e;
+      --warn: #f59e0b;
+      --err: #ef4444;
+      --border: #223049;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, "Apple Color Emoji",
+        "Segoe UI Emoji", "Segoe UI Symbol";
+      background: linear-gradient(180deg, #0a1020, #0b1220);
+      color: var(--text);
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 24px;
+    }
+    .app {
+      width: 100%;
+      max-width: 980px;
+      background: linear-gradient(180deg, var(--panel), #0e1726);
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      box-shadow: 0 10px 30px rgba(0,0,0,0.35);
+      overflow: hidden;
+    }
+    header {
+      padding: 20px 24px;
+      background: linear-gradient(90deg, rgba(79,118,253,0.15), rgba(56,189,248,0.15));
+      border-bottom: 1px solid var(--border);
+    }
+    header h1 {
+      margin: 0 0 6px;
+      font-size: 20px;
+      font-weight: 700;
+      letter-spacing: 0.2px;
+    }
+    header p {
+      margin: 0;
+      color: var(--muted);
+      font-size: 14px;
+    }
+    main { padding: 24px; }
+    .grid {
+      display: grid;
+      grid-template-columns: 1.2fr 1fr;
+      gap: 20px;
+    }
+    @media (max-width: 980px) {
+      .grid { grid-template-columns: 1fr; }
+    }
+    .card {
+      background: linear-gradient(180deg, var(--panel), #0d1625);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 16px;
+    }
+    .card h2 {
+      margin: 0 0 10px;
+      font-size: 16px;
+      font-weight: 700;
+    }
+    .muted { color: var(--muted); }.dropzone {
+  border: 2px dashed #2a3b5e;
+  border-radius: 12px;
+  padding: 22px;
+  text-align: center;
+  background: rgba(32, 44, 72, 0.35);
+  transition: border-color 0.2s, background 0.2s;
+  cursor: pointer;
+  user-select: none;
 }
-}// 3) Background coloring
-if (CONFIG.clearAllBackgrounds) {
-sheet.getRange(1, 1, lastRow, lastCol).setBackground(null);
-}if (CONFIG.hasHeader && CONFIG.highlight && CONFIG.highlight.header) {
-const color = CONFIG.highlight.color || "#FFF2CC";
-sheet.getRange(1, 1, 1, lastCol).setBackground(color);
-}if (CONFIG.highlight && Array.isArray(CONFIG.highlight.rows) && CONFIG.highlight.rows.length) {
-const color = CONFIG.highlight.color || "#FFF2CC";
-const startRow = CONFIG.hasHeader ? 2 : 1;
-const uniqueRows = Array.from(new Set(CONFIG.highlight.rows.filter(r => r >= 1))).sort((a,b) => a - b);
-uniqueRows.forEach(r => {
-const rowIndex = startRow + (r - 1);
-if (rowIndex <= sheet.getLastRow()) {
-sheet.getRange(rowIndex, 1, 1, sheet.getLastColumn()).setBackground(color);
+.dropzone.dragover {
+  border-color: var(--accent);
+  background: rgba(79, 118, 253, 0.12);
 }
-});
-}if (CONFIG.freezeHeader && CONFIG.hasHeader) {
-sheet.setFrozenRows(1);
-}SpreadsheetApp.getUi().alert("Done: columns removed, data sorted, and highlighting applied.");
-}// Helpersfunction removeColumnsByLetters(sheet, letters) {
-// Convert to 1-based column indices, keep only those that exist, and delete right-to-left
-const lastCol = sheet.getLastColumn();
-const indices = letters
-.map(letterToIndex)
-.filter(n => n >= 1 && n <= lastCol)
-.sort((a, b) => b - a);
-indices.forEach(idx => sheet.deleteColumns(idx, 1));
-}function buildSortSpecs(sheet, sortBy, hasHeader) {
-const specs = [];
-const lastCol = sheet.getLastColumn();
-const header = hasHeader
-? sheet.getRange(1, 1, 1, lastCol).getValues()[0]
-: null;sortBy.forEach(item => {
-const token = item.col;
-let colIndex;if (typeof token === "number") {
-  colIndex = token; // 1-based column
-} else if (typeof token === "string") {
-  if (/^[A-Za-z]+$/.test(token)) {
-    colIndex = letterToIndex(token);
-  } else if (header) {
-    const idx = header.indexOf(token);
-    if (idx === -1) throw new Error("Sort column not found in header: " + token);
-    colIndex = idx + 1;
-  } else {
-    throw new Error("Cannot resolve sort column (no header to match): " + token);
-  }
-} else {
-  throw new Error("Invalid sort column token: " + token);
+.dropzone input[type="file"] { display: none; }
+.dz-title {
+  font-weight: 700;
+  margin-bottom: 6px;
+}
+.dz-sub {
+  font-size: 13px;
+  color: var(--muted);
 }
 
-specs.push({
-  column: colIndex,
-  ascending: !String(item.order || "asc").toLowerCase().startsWith("d")
-});
-});return specs;
-}function letterToIndex(s) {
-const str = String(s).trim().toUpperCase();
-if (!/^[A-Z]+$/.test(str)) throw new Error("Invalid column letter: " + s);
-let n = 0;
-for (let i = 0; i < str.length; i++) {
-n = n * 26 + (str.charCodeAt(i) - 64); // 'A' -> 1
+.config {
+  display: grid;
+  gap: 8px;
+  font-size: 14px;
 }
-return n; // 1-based
+code {
+  background: var(--panel-bright);
+  border: 1px solid var(--border);
+  color: #d6e4ff;
+  padding: 2px 6px;
+  border-radius: 6px;
 }
+
+.status {
+  margin-top: 12px;
+  font-size: 14px;
+  line-height: 1.45;
+  background: #0d1526;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 10px 12px;
+  color: var(--muted);
+  max-height: 220px;
+  overflow: auto;
+  white-space: pre-wrap;
+}
+
+.actions {
+  display: flex;
+  gap: 10px;
+  margin-top: 14px;
+  flex-wrap: wrap;
+}
+button, .btn {
+  appearance: none;
+  border: 1px solid var(--border);
+  background: linear-gradient(180deg, #16223a, #121b2f);
+  color: var(--text);
+  font-weight: 600;
+  padding: 10px 14px;
+  border-radius: 10px;
+  cursor: pointer;
+  transition: transform 0.02s ease, border-color 0.2s ease, background 0.2s ease;
+}
+button:hover, .btn:hover {
+  border-color: #345;
+  background: linear-gradient(180deg, #1a2947, #15223b);
+}
+button:active, .btn:active { transform: translateY(1px); }
+button.primary {
+  background: linear-gradient(180deg, #2a4ff0, #2244d4);
+  border-color: #3050ff;
+}
+button.primary:hover { background: linear-gradient(180deg, #3358ff, #2649db); }
+button.success {
+  background: linear-gradient(180deg, #1e8449, #176d3b);
+  border-color: #29a35a;
+}
+button[disabled] {
+  opacity: 0.6;
+  cursor: not-allowed;
+  filter: grayscale(0.2);
+}
+
+.pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  background: rgba(56, 189, 248, 0.12);
+  border: 1px solid rgba(56, 189, 248, 0.35);
+  color: #c3e9ff;
+  padding: 6px 10px;
+  border-radius: 999px;
+  font-size: 13px;
+  font-weight: 600;
+}
+.mono { font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace; }
+.small { font-size: 12px; color: var(--muted); }
+.warn { color: #fbbf24; }
+  </style>
+</head>
+<body>
+  <div class="app">
+    <header>
+      <h1>CSV Column Remover + PPC Assist Filter</h1>
+      <p>Removes specific columns and keeps only rows where PPC Assist = "Y". All processing happens in your browser.</p>
+    </header>
+    <main>
+      <div class="grid">
+        <section class="card">
+          <h2>1) Upload CSV</h2>
+          <div id="dropzone" class="dropzone" tabindex="0" role="button" aria-label="Upload CSV">
+            <div class="dz-title">Drop your CSV here</div>
+            <div class="dz-sub">or click to select a file</div>
+            <input id="file-input" type="file" accept=".csv,text/csv" />
+          </div>      <div class="status" id="status">Waiting for file…</div>
+      <div class="actions">
+        <button id="process-btn" class="primary" disabled>Process & Prepare Download</button>
+        <a id="download-link" class="btn success" style="display:none" download>Download Cleaned CSV</a>
+        <button id="reset-btn">Reset</button>
+      </div>
+    </section>
+
+    <section class="card">
+      <h2>2) Settings (preconfigured)</h2>
+      <div class="config">
+        <div>
+          <span class="pill">
+            Drop letters
+            <span class="mono">H, I, J, K, L, M, N, O, P, Q, U, V, W, X, Y, AA</span>
+          </span>
+        </div>
+        <div>
+          <span class="pill">
+            Filter
+            <span class="mono">Keep rows where "PPC Assist" == "Y"</span>
+          </span>
+        </div>
+        <div class="small">
+          1-based indices:
+          <span id="indices-1based" class="mono"></span>
+        </div>
+        <div class="small">
+          0-based indices:
+          <span id="indices-0based" class="mono"></span>
+        </div>
+        <div class="muted small">
+          Notes:
+          <ul>
+            <li>Filtering uses the header "PPC Assist" (exact match, trimmed). Value match is "Y" (trimmed).</li>
+            <li>If "PPC Assist" would be deleted by the column removal, the tool filters first, then drops columns, and will inform you.</li>
+          </ul>
+        </div>
+      </div>
+    </section>
+  </div>
+</main>
+  </div>  <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js" referrerpolicy="no-referrer"></script>  <script>
+    // Configuration
+    const LETTERS_TO_DROP = ['H','I','J','K','L','M','N','O','P','Q','U','V','W','X','Y','AA'];
+    const FILTER_HEADER_NAME = 'PPC Assist';
+    const FILTER_VALUE = 'Y';
+
+    function excelColToZeroIndex(col) {
+      let idx = 0;
+      for (const ch of col.toUpperCase()) {
+        const code = ch.charCodeAt(0);
+        if (code < 65 || code > 90) throw new Error('Invalid column letter: ' + col);
+        idx = idx * 26 + (code - 64);
+      }
+      return idx - 1; // 0-based
+    }
+    const DROP_INDICES_0 = LETTERS_TO_DROP.map(excelColToZeroIndex);
+    const DROP_INDICES_1 = DROP_INDICES_0.map(i => i + 1);
+
+    const dz = document.getElementById('dropzone');
+    const fileInput = document.getElementById('file-input');
+    const statusEl = document.getElementById('status');
+    const processBtn = document.getElementById('process-btn');
+    const downloadLink = document.getElementById('download-link');
+    const resetBtn = document.getElementById('reset-btn');
+    const i0 = document.getElementById('indices-0based');
+    const i1 = document.getElementById('indices-1based');
+
+    i0.textContent = DROP_INDICES_0.join(', ');
+    i1.textContent = DROP_INDICES_1.join(', ');
+
+    let selectedFile = null;
+    let cleanedCsvBlobUrl = null;
+    let outputFilename = 'cleaned.csv';
+
+    function setStatus(msg, append = false) {
+      statusEl.textContent = append ? (statusEl.textContent + '\\n' + msg) : msg;
+    }
+
+    function resetState() {
+      selectedFile = null;
+      if (cleanedCsvBlobUrl) {
+        URL.revokeObjectURL(cleanedCsvBlobUrl);
+        cleanedCsvBlobUrl = null;
+      }
+      outputFilename = 'cleaned.csv';
+      fileInput.value = '';
+      setStatus('Waiting for file…');
+      processBtn.disabled = true;
+      downloadLink.style.display = 'none';
+      downloadLink.removeAttribute('href');
+      downloadLink.removeAttribute('download');
+    }
+
+    function handleFiles(files) {
+      if (!files || !files.length) return;
+      const file = files[0];
+      if (!file.name.toLowerCase().endsWith('.csv')) {
+        setStatus('Please select a .csv file.');
+        return;
+      }
+      selectedFile = file;
+      outputFilename = 'cleaned-' + (file.name || 'output.csv');
+      setStatus(\`Selected: \${file.name} (\${(file.size/1024).toFixed(1)} KB)\`);
+      processBtn.disabled = false;
+      downloadLink.style.display = 'none';
+    }
+
+    dz.addEventListener('click', () => fileInput.click());
+    dz.addEventListener('keypress', (e) => {
+      if (e.key === 'Enter' || e.key === ' ') {
+        e.preventDefault();
+        fileInput.click();
+      }
+    });
+    dz.addEventListener('dragover', (e) => { e.preventDefault(); dz.classList.add('dragover'); });
+    dz.addEventListener('dragleave', () => dz.classList.remove('dragover'));
+    dz.addEventListener('drop', (e) => { e.preventDefault(); dz.classList.remove('dragover'); handleFiles(e.dataTransfer.files); });
+    fileInput.addEventListener('change', (e) => handleFiles(e.target.files));
+    resetBtn.addEventListener('click', resetState);
+
+    function trimOrEmpty(v) {
+      return (v == null) ? '' : String(v).trim();
+    }
+
+    function findHeaderIndex(headerRow, name) {
+      const target = trimOrEmpty(name);
+      for (let i = 0; i < headerRow.length; i++) {
+        if (trimOrEmpty(headerRow[i]) === target) return i;
+      }
+      return -1;
+    }
+
+    function dropColumns(rows, dropIndices0) {
+      // For each row, drop indices that exist in that row length
+      const out = rows.map(row => {
+        if (!Array.isArray(row)) return row;
+        const dropSet = new Set(dropIndices0.filter(i => i >= 0 && i < row.length));
+        return row.filter((_, idx) => !dropSet.has(idx));
+      });
+      return out;
+    }
+
+    function filterRowsByColumnValue(rows, colIdx, value) {
+      if (rows.length === 0 || colIdx < 0) return rows;
+      const header = rows[0];
+      const kept = [header];
+      for (let r = 1; r < rows.length; r++) {
+        const row = rows[r];
+        if (!Array.isArray(row)) continue;
+        const cellVal = trimOrEmpty(row[colIdx]);
+        if (cellVal === value) kept.push(row);
+      }
+      return kept;
+    }
+
+    processBtn.addEventListener('click', async () => {
+      if (!selectedFile) return;
+      setStatus('Reading file…');
+      processBtn.disabled = true;
+
+      try {
+        const text = await selectedFile.text();
+        setStatus('Parsing CSV…', true);
+
+        const parsed = Papa.parse(text, {
+          dynamicTyping: false,
+          skipEmptyLines: false
+        });
+
+        if (parsed.errors && parsed.errors.length) {
+          setStatus(
+            \`CSV parse warnings: \${parsed.errors.length}\\n\` +
+            parsed.errors.slice(0,3).map(e => \`- Row \${e.row}: \${e.message}\`).join('\\n'),
+            true
+          );
+        }
+
+        let rows = parsed.data;
+        if (!Array.isArray(rows) || rows.length === 0) {
+          setStatus('No rows found in CSV.');
+          processBtn.disabled = false;
+          return;
+        }
+        if (!Array.isArray(rows[0])) {
+          setStatus('Unexpected format: first row is not a list of values.');
+          processBtn.disabled = false;
+          return;
+        }
+
+        const originalRowCount = rows.length;
+        const header = rows[0];
+        const ppcIdxOriginal = findHeaderIndex(header, FILTER_HEADER_NAME);
+        if (ppcIdxOriginal === -1) {
+          setStatus(\`Header "\${FILTER_HEADER_NAME}" not found. Unable to filter by "\${FILTER_HEADER_NAME}".\`, true);
+        } else {
+          setStatus(\`Found "\${FILTER_HEADER_NAME}" at index \${ppcIdxOriginal} (0-based)\`, true);
+        }
+
+        // Determine whether PPC Assist would be dropped
+        const willDropPPC = ppcIdxOriginal >= 0 && DROP_INDICES_0.includes(ppcIdxOriginal);
+
+        // Pipeline:
+        // - If PPC column would be dropped, filter first by original index, then drop.
+        // - Otherwise, drop columns first, then find PPC column again and filter.
+        if (ppcIdxOriginal >= 0 && willDropPPC) {
+          setStatus('Note: "PPC Assist" is slated for deletion by the drop list; filtering will run BEFORE dropping columns.', true);
+          rows = filterRowsByColumnValue(rows, ppcIdxOriginal, FILTER_VALUE);
+          rows = dropColumns(rows, DROP_INDICES_0);
+        } else {
+          rows = dropColumns(rows, DROP_INDICES_0);
+          if (ppcIdxOriginal === -1) {
+            // Try finding PPC Assist after drop (maybe renamed or trimmed)
+            const newHeader = rows[0];
+            const ppcIdxAfter = findHeaderIndex(newHeader, FILTER_HEADER_NAME);
+            if (ppcIdxAfter === -1) {
+              setStatus('Warning: "PPC Assist" not found after dropping columns; no row filtering applied.', true);
+            } else {
+              setStatus(\`Filtering rows where "\${FILTER_HEADER_NAME}" == "\${FILTER_VALUE}" (index \${ppcIdxAfter})…\`, true);
+              rows = filterRowsByColumnValue(rows, ppcIdxAfter, FILTER_VALUE);
+            }
+          } else {
+            // PPC existed and is not being dropped; find its new index post-drop
+            const newHeader = rows[0];
+            const ppcIdxAfter = findHeaderIndex(newHeader, FILTER_HEADER_NAME);
+            if (ppcIdxAfter === -1) {
+              setStatus('Warning: "PPC Assist" not found after dropping columns; no row filtering applied.', true);
+            } else {
+              setStatus(\`Filtering rows where "\${FILTER_HEADER_NAME}" == "\${FILTER_VALUE}" (index \${ppcIdxAfter})…\`, true);
+              rows = filterRowsByColumnValue(rows, ppcIdxAfter, FILTER_VALUE);
+            }
+          }
+        }
+
+        const keptRows = rows.length;
+        setStatus(\`Rows before: \${originalRowCount} | after: \${keptRows}\`, true);
+
+        const cleanedCsv = Papa.unparse(rows);
+        const blob = new Blob([cleanedCsv], { type: 'text/csv;charset=utf-8' });
+        if (cleanedCsvBlobUrl) URL.revokeObjectURL(cleanedCsvBlobUrl);
+        cleanedCsvBlobUrl = URL.createObjectURL(blob);
+
+        downloadLink.href = cleanedCsvBlobUrl;
+        downloadLink.download = 'cleaned-filtered-' + (selectedFile.name || 'output.csv');
+        downloadLink.style.display = 'inline-flex';
+
+        setStatus('Ready! Click "Download Cleaned CSV" to save your file.', true);
+      } catch (err) {
+        console.error(err);
+        setStatus('Error: ' + (err && err.message ? err.message : String(err)));
+      } finally {
+        processBtn.disabled = false;
+      }
+    });
+
+    // Initialize
+    resetState();
+  </script></body>
+</html>
