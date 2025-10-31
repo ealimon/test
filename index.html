@@ -1,0 +1,379 @@
+<!DOCTYPE html><html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>CSV Column Remover</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <style>
+    :root {
+      --bg: #0b1220;
+      --panel: #101827;
+      --panel-bright: #1a2233;
+      --text: #e6eef8;
+      --muted: #9fb2c8;
+      --accent: #4f76fd;
+      --accent-2: #38bdf8;
+      --ok: #22c55e;
+      --warn: #f59e0b;
+      --err: #ef4444;
+      --border: #223049;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, "Apple Color Emoji",
+        "Segoe UI Emoji", "Segoe UI Symbol";
+      background: linear-gradient(180deg, #0a1020, #0b1220);
+      color: var(--text);
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 24px;
+    }
+    .app {
+      width: 100%;
+      max-width: 880px;
+      background: linear-gradient(180deg, var(--panel), #0e1726);
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      box-shadow: 0 10px 30px rgba(0,0,0,0.35);
+      overflow: hidden;
+    }
+    header {
+      padding: 20px 24px;
+      background: linear-gradient(90deg, rgba(79,118,253,0.15), rgba(56,189,248,0.15));
+      border-bottom: 1px solid var(--border);
+    }
+    header h1 {
+      margin: 0 0 6px;
+      font-size: 20px;
+      font-weight: 700;
+      letter-spacing: 0.2px;
+    }
+    header p {
+      margin: 0;
+      color: var(--muted);
+      font-size: 14px;
+    }
+    main { padding: 24px; }
+    .grid {
+      display: grid;
+      grid-template-columns: 1.2fr 1fr;
+      gap: 20px;
+    }
+    @media (max-width: 880px) {
+      .grid { grid-template-columns: 1fr; }
+    }.card {
+  background: linear-gradient(180deg, var(--panel), #0d1625);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 16px;
+}
+.card h2 {
+  margin: 0 0 10px;
+  font-size: 16px;
+  font-weight: 700;
+}
+.muted { color: var(--muted); }
+
+.dropzone {
+  border: 2px dashed #2a3b5e;
+  border-radius: 12px;
+  padding: 22px;
+  text-align: center;
+  background: rgba(32, 44, 72, 0.35);
+  transition: border-color 0.2s, background 0.2s;
+  cursor: pointer;
+  user-select: none;
+}
+.dropzone.dragover {
+  border-color: var(--accent);
+  background: rgba(79, 118, 253, 0.12);
+}
+.dropzone input[type="file"] { display: none; }
+.dz-title {
+  font-weight: 700;
+  margin-bottom: 6px;
+}
+.dz-sub {
+  font-size: 13px;
+  color: var(--muted);
+}
+
+.config {
+  display: grid;
+  gap: 8px;
+  font-size: 14px;
+}
+code {
+  background: var(--panel-bright);
+  border: 1px solid var(--border);
+  color: #d6e4ff;
+  padding: 2px 6px;
+  border-radius: 6px;
+}
+
+.status {
+  margin-top: 12px;
+  font-size: 14px;
+  line-height: 1.45;
+  background: #0d1526;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 10px 12px;
+  color: var(--muted);
+  max-height: 180px;
+  overflow: auto;
+  white-space: pre-wrap;
+}
+
+.actions {
+  display: flex;
+  gap: 10px;
+  margin-top: 14px;
+  flex-wrap: wrap;
+}
+button, .btn {
+  appearance: none;
+  border: 1px solid var(--border);
+  background: linear-gradient(180deg, #16223a, #121b2f);
+  color: var(--text);
+  font-weight: 600;
+  padding: 10px 14px;
+  border-radius: 10px;
+  cursor: pointer;
+  transition: transform 0.02s ease, border-color 0.2s ease, background 0.2s ease;
+}
+button:hover, .btn:hover {
+  border-color: #345;
+  background: linear-gradient(180deg, #1a2947, #15223b);
+}
+button:active, .btn:active { transform: translateY(1px); }
+button.primary {
+  background: linear-gradient(180deg, #2a4ff0, #2244d4);
+  border-color: #3050ff;
+}
+button.primary:hover { background: linear-gradient(180deg, #3358ff, #2649db); }
+button.success {
+  background: linear-gradient(180deg, #1e8449, #176d3b);
+  border-color: #29a35a;
+}
+button[disabled] {
+  opacity: 0.6;
+  cursor: not-allowed;
+  filter: grayscale(0.2);
+}
+
+.pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  background: rgba(56, 189, 248, 0.12);
+  border: 1px solid rgba(56, 189, 248, 0.35);
+  color: #c3e9ff;
+  padding: 6px 10px;
+  border-radius: 999px;
+  font-size: 13px;
+  font-weight: 600;
+}
+.mono { font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace; }
+.small { font-size: 12px; color: var(--muted); }
+  </style>
+</head>
+<body>
+  <div class="app">
+    <header>
+      <h1>CSV Column Remover</h1>
+      <p>Drops Excel-lettered columns from a CSV entirely in your browser — no data leaves your device.</p>
+    </header>
+    <main>
+      <div class="grid">
+        <section class="card">
+          <h2>1) Upload CSV</h2>
+          <div id="dropzone" class="dropzone" tabindex="0" role="button" aria-label="Upload CSV">
+            <div class="dz-title">Drop your CSV here</div>
+            <div class="dz-sub">or click to select a file</div>
+            <input id="file-input" type="file" accept=".csv,text/csv" />
+          </div>      <div class="status" id="status">Waiting for file…</div>
+      <div class="actions">
+        <button id="process-btn" class="primary" disabled>Process & Prepare Download</button>
+        <a id="download-link" class="btn success" style="display:none" download>Download Cleaned CSV</a>
+        <button id="reset-btn">Reset</button>
+      </div>
+    </section>
+
+    <section class="card">
+      <h2>2) Columns that will be removed</h2>
+      <div class="config">
+        <div>
+          <span class="pill">
+            Letters
+            <span class="mono">H, I, J, K, L, M, N, O, P, Q, U, V, W, X, Y, AA</span>
+          </span>
+        </div>
+        <div class="small">
+          1-based indices:
+          <span id="indices-1based" class="mono"></span>
+        </div>
+        <div class="small">
+          0-based indices:
+          <span id="indices-0based" class="mono"></span>
+        </div>
+        <div class="muted small">
+          Note: Columns are removed by position, not by header name. If a row is shorter than a target index, that row is left unchanged.
+        </div>
+      </div>
+    </section>
+  </div>
+</main>
+  </div>  <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js" referrerpolicy="no-referrer"></script>  <script>
+    // Configuration: Excel-lettered columns to drop
+    const LETTERS_TO_DROP = ['H','I','J','K','L','M','N','O','P','Q','U','V','W','X','Y','AA'];
+
+    function excelColToZeroIndex(col) {
+      let idx = 0;
+      for (const ch of col.toUpperCase()) {
+        const code = ch.charCodeAt(0);
+        if (code < 65 || code > 90) throw new Error('Invalid column letter: ' + col);
+        idx = idx * 26 + (code - 64);
+      }
+      return idx - 1; // convert to 0-based
+    }
+    const DROP_INDICES_0 = LETTERS_TO_DROP.map(excelColToZeroIndex);
+    const DROP_INDICES_1 = DROP_INDICES_0.map(i => i + 1);
+
+    // UI elements
+    const dz = document.getElementById('dropzone');
+    const fileInput = document.getElementById('file-input');
+    const statusEl = document.getElementById('status');
+    const processBtn = document.getElementById('process-btn');
+    const downloadLink = document.getElementById('download-link');
+    const resetBtn = document.getElementById('reset-btn');
+    const i0 = document.getElementById('indices-0based');
+    const i1 = document.getElementById('indices-1based');
+
+    i0.textContent = DROP_INDICES_0.join(', ');
+    i1.textContent = DROP_INDICES_1.join(', ');
+
+    let selectedFile = null;
+    let cleanedCsvBlobUrl = null;
+    let outputFilename = 'cleaned.csv';
+
+    function setStatus(msg, append = false) {
+      if (append) {
+        statusEl.textContent += '\n' + msg;
+      } else {
+        statusEl.textContent = msg;
+      }
+    }
+
+    function resetState() {
+      selectedFile = null;
+      if (cleanedCsvBlobUrl) {
+        URL.revokeObjectURL(cleanedCsvBlobUrl);
+        cleanedCsvBlobUrl = null;
+      }
+      outputFilename = 'cleaned.csv';
+      fileInput.value = '';
+      setStatus('Waiting for file…');
+      processBtn.disabled = true;
+      downloadLink.style.display = 'none';
+      downloadLink.removeAttribute('href');
+      downloadLink.removeAttribute('download');
+    }
+
+    function handleFiles(files) {
+      if (!files || !files.length) return;
+      const file = files[0];
+      if (!file.name.toLowerCase().endsWith('.csv')) {
+        setStatus('Please select a .csv file.');
+        return;
+      }
+      selectedFile = file;
+      outputFilename = 'cleaned-' + (file.name || 'output.csv');
+      setStatus(`Selected: ${file.name} (${(file.size/1024).toFixed(1)} KB)`);
+      processBtn.disabled = false;
+      downloadLink.style.display = 'none';
+    }
+
+    // Dropzone behaviors
+    dz.addEventListener('click', () => fileInput.click());
+    dz.addEventListener('keypress', (e) => {
+      if (e.key === 'Enter' || e.key === ' ') {
+        e.preventDefault();
+        fileInput.click();
+      }
+    });
+    dz.addEventListener('dragover', (e) => {
+      e.preventDefault();
+      dz.classList.add('dragover');
+    });
+    dz.addEventListener('dragleave', () => dz.classList.remove('dragover'));
+    dz.addEventListener('drop', (e) => {
+      e.preventDefault();
+      dz.classList.remove('dragover');
+      handleFiles(e.dataTransfer.files);
+    });
+    fileInput.addEventListener('change', (e) => handleFiles(e.target.files));
+    resetBtn.addEventListener('click', resetState);
+
+    processBtn.addEventListener('click', async () => {
+      if (!selectedFile) return;
+      setStatus('Reading file…');
+      processBtn.disabled = true;
+
+      try {
+        const text = await selectedFile.text();
+        setStatus('Parsing CSV…', true);
+
+        const parsed = Papa.parse(text, {
+          dynamicTyping: false,
+          skipEmptyLines: false
+        });
+
+        if (parsed.errors && parsed.errors.length) {
+          setStatus(`CSV parse warnings: ${parsed.errors.length}\n` + parsed.errors.slice(0,3).map(e => `- Row ${e.row}: ${e.message}`).join('\n'), true);
+        }
+
+        const rows = parsed.data;
+        if (!Array.isArray(rows) || rows.length === 0) {
+          setStatus('No rows found in CSV.');
+          processBtn.disabled = false;
+          return;
+        }
+
+        const firstRowLen = Array.isArray(rows[0]) ? rows[0].length : 0;
+        setStatus(`Rows detected: ${rows.length}\nColumns (first row): ${firstRowLen}`, true);
+
+        // Remove columns by zero-based index (per row, guarding shorter rows)
+        const cleanedRows = rows.map(row => {
+          if (!Array.isArray(row)) return row;
+          const dropSet = new Set(DROP_INDICES_0.filter(i => i < row.length));
+          return row.filter((_, idx) => !dropSet.has(idx));
+        });
+
+        const cleanedFirstLen = Array.isArray(cleanedRows[0]) ? cleanedRows[0].length : 0;
+        setStatus(`Columns after removal (first row): ${cleanedFirstLen}`, true);
+
+        const cleanedCsv = Papa.unparse(cleanedRows);
+        const blob = new Blob([cleanedCsv], { type: 'text/csv;charset=utf-8' });
+        if (cleanedCsvBlobUrl) URL.revokeObjectURL(cleanedCsvBlobUrl);
+        cleanedCsvBlobUrl = URL.createObjectURL(blob);
+
+        downloadLink.href = cleanedCsvBlobUrl;
+        downloadLink.download = outputFilename;
+        downloadLink.style.display = 'inline-flex';
+
+        setStatus('Ready! Click "Download Cleaned CSV" to save your file.', true);
+      } catch (err) {
+        console.error(err);
+        setStatus('Error: ' + (err && err.message ? err.message : String(err)));
+      } finally {
+        processBtn.disabled = false;
+      }
+    });
+
+    // Initialize
+    resetState();
+  </script></body>
+</html>
