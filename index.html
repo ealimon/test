@@ -1,97 +1,150 @@
 <!DOCTYPE html><html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <title>CSV Paste Processor – Column Drop + PPC Assist Filter</title>
+  <title>CSV Cleaner (Offline) – Drop Columns + Conditional PPC Assist Filter</title>
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <style>
     :root {
-      --bg: #0b1220;
-      --panel: #101827;
-      --panel2: #0d1625;
-      --text: #e6eef8;
-      --muted: #9fb2c8;
-      --accent: #4f76fd;
-      --border: #223049;
+      --bg: #0b1220; --panel: #101827; --panel-bright: #1a2233; --text: #e6eef8; --muted: #9fb2c8;
+      --accent: #4f76fd; --ok: #22c55e; --warn: #f59e0b; --err: #ef4444; --border: #223049;
     }
     * { box-sizing: border-box; }
-    body {
-      margin: 0; background: linear-gradient(180deg, #0a1020, #0b1220); color: var(--text);
-      font-family: system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial;
-      min-height: 100vh; display: flex; align-items: center; justify-content: center; padding: 20px;
-    }
-    .app { width: 100%; max-width: 1000px; background: linear-gradient(180deg, var(--panel), #0e1726);
+    body { margin: 0; font-family: system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial;
+      background: linear-gradient(180deg, #0a1020, #0b1220); color: var(--text); min-height: 100vh;
+      display: flex; align-items: center; justify-content: center; padding: 24px; }
+    .app { width: 100%; max-width: 980px; background: linear-gradient(180deg, var(--panel), #0e1726);
       border: 1px solid var(--border); border-radius: 16px; box-shadow: 0 10px 30px rgba(0,0,0,0.35); overflow: hidden; }
-    header { padding: 18px 20px; border-bottom: 1px solid var(--border);
-      background: linear-gradient(90deg, rgba(79,118,253,0.15), rgba(56,189,248,0.15)); }
-    header h1 { margin: 0 0 4px; font-size: 20px; }
+    header { padding: 20px 24px; background: linear-gradient(90deg, rgba(79,118,253,0.15), rgba(56,189,248,0.15)); border-bottom: 1px solid var(--border); }
+    header h1 { margin: 0 0 6px; font-size: 20px; font-weight: 700; }
     header p { margin: 0; color: var(--muted); font-size: 14px; }
-    main { padding: 18px; display: grid; gap: 16px; grid-template-columns: 1.1fr 1fr; }
-    @media (max-width: 980px) { main { grid-template-columns: 1fr; } }
-    .card { background: linear-gradient(180deg, var(--panel), var(--panel2)); border: 1px solid var(--border);
-      border-radius: 12px; padding: 14px; }
-    .card h2 { margin: 0 0 10px; font-size: 16px; }
-    textarea { width: 100%; min-height: 380px; background: #0a1326; color: var(--text); border: 1px solid var(--border);
-      border-radius: 10px; padding: 12px; font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: 13px; }
-    .small { font-size: 12px; color: var(--muted); }
-    .actions { display: flex; gap: 10px; margin-top: 10px; flex-wrap: wrap; }
-    button, .btn {
-      appearance: none; border: 1px solid var(--border); color: var(--text); font-weight: 600;
-      background: linear-gradient(180deg, #16223a, #121b2f); padding: 10px 14px; border-radius: 10px; cursor: pointer;
-    }
-    button:hover, .btn:hover { border-color: #345; background: linear-gradient(180deg, #1a2947, #15223b); }
+    main { padding: 24px; }
+    .grid { display: grid; grid-template-columns: 1.2fr 1fr; gap: 20px; }
+    @media (max-width: 980px) { .grid { grid-template-columns: 1fr; } }
+    .card { background: linear-gradient(180deg, var(--panel), #0d1625); border: 1px solid var(--border); border-radius: 12px; padding: 16px; }
+    .card h2 { margin: 0 0 10px; font-size: 16px; font-weight: 700; }
+    .dropzone { border: 2px dashed #2a3b5e; border-radius: 12px; padding: 22px; text-align: center; background: rgba(32,44,72,0.35); cursor: pointer; }
+    .dropzone.dragover { border-color: var(--accent); background: rgba(79,118,253,0.12); }
+    .dropzone input[type="file"] { display: none; }
+    .dz-title { font-weight: 700; margin-bottom: 6px; }
+    .dz-sub { font-size: 13px; color: var(--muted); }
+    .status { margin-top: 12px; font-size: 14px; line-height: 1.45; background: #0d1526; border: 1px solid var(--border);
+      border-radius: 8px; padding: 10px 12px; color: var(--muted); max-height: 260px; overflow: auto; white-space: pre-wrap; }
+    .actions { display: flex; gap: 10px; margin-top: 14px; flex-wrap: wrap; }
+    button, .btn { appearance: none; border: 1px solid var(--border); background: linear-gradient(180deg, #16223a, #121b2f);
+      color: var(--text); font-weight: 600; padding: 10px 14px; border-radius: 10px; cursor: pointer; }
     button.primary { background: linear-gradient(180deg, #2a4ff0, #2244d4); border-color: #3050ff; }
-    button.primary:hover { background: linear-gradient(180deg, #3358ff, #2649db); }
+    button.success { background: linear-gradient(180deg, #1e8449, #176d3b); border-color: #29a35a; }
     button[disabled] { opacity: 0.6; cursor: not-allowed; filter: grayscale(0.2); }
-    select { background: #0f1830; color: var(--text); border: 1px solid var(--border); border-radius: 6px; padding: 6px 8px; }
-    .row { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
-    .pill { display: inline-flex; gap: 8px; align-items: center; background: rgba(56,189,248,0.12); border: 1px solid rgba(56,189,248,0.35);
+    .pill { display: inline-flex; align-items: center; gap: 8px; background: rgba(56,189,248,0.12); border: 1px solid rgba(56,189,248,0.35);
       color: #c3e9ff; padding: 6px 10px; border-radius: 999px; font-size: 13px; font-weight: 600; }
     .mono { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; }
-    .status { margin-top: 10px; font-size: 13px; line-height: 1.45; background: #0d1526; border: 1px solid var(--border);
-      border-radius: 8px; padding: 10px 12px; color: var(--muted); max-height: 240px; overflow: auto; white-space: pre-wrap; }
+    .small { font-size: 12px; color: var(--muted); }
   </style>
 </head>
 <body>
   <div class="app">
     <header>
-      <h1>CSV Paste Processor</h1>
-      <p>Paste your CSV below. The tool drops columns H, I, J, K, L, M, N, O, P, Q, U, V, W, X, Y, AA and applies PPC Assist filtering.</p>
+      <h1>CSV Cleaner (Offline)</h1>
+      <p>Removes columns H, I, J, K, L, M, N, O, P, Q, U, V, W, X, Y, AA and applies conditional filtering on PPC Assist.</p>
     </header>
     <main>
-      <section class="card">
-        <h2>1) Paste your CSV</h2>
-        <textarea id="csv-input" placeholder="Paste CSV text here..."></textarea>
-        <div class="actions">
-          <button id="process-btn" class="primary">Process & Prepare Download</button>
-          <a id="download-link" class="btn" style="display:none" download>Download Cleaned CSV</a>
-          <button id="reset-btn">Reset</button>
-        </div>
-        <div id="status" class="status">Waiting for CSV text…</div>
-      </section>
-      <section class="card">
-        <h2>2) Settings</h2>
-        <div class="row">
-          <span class="pill">Drop letters <span class="mono">H, I, J, K, L, M, N, O, P, Q, U, V, W, X, Y, AA</span></span>
-        </div>
-        <div class="row">
-          <span>When PPC Assist would be deleted, filter first and:</span>
-          <select id="ppc-first-mode">
-            <option value="remove" selected>Remove rows where PPC Assist == "Y"</option>
-            <option value="keep">Keep rows where PPC Assist == "Y"</option>
-          </select>
-        </div>
-        <div class="small">
-          Otherwise (when PPC Assist remains), columns are dropped first, then rows are kept where PPC Assist == "Y".
-          The PPC Assist header is matched by exact text (trimmed). If not found, it will fall back to column Z before dropping.
-        </div>
-      </section>
-    </main>
-  </div>  <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js" referrerpolicy="no-referrer"></script>  <script>
-    // Configuration
+      <div class="grid">
+        <section class="card">
+          <h2>1) Upload CSV</h2>
+          <div id="dropzone" class="dropzone" tabindex="0" role="button" aria-label="Upload CSV">
+            <div class="dz-title">Drop your CSV here</div>
+            <div class="dz-sub">or click to select a file</div>
+            <input id="file-input" type="file" accept=".csv,text/csv" />
+          </div>      <div class="status" id="status">Waiting for file…</div>
+      <div class="actions">
+        <button id="process-btn" class="primary" disabled>Process & Prepare Download</button>
+        <a id="download-link" class="btn success" style="display:none" download>Download Cleaned CSV</a>
+        <button id="reset-btn">Reset</button>
+      </div>
+    </section>
+
+    <section class="card">
+      <h2>2) Rules (preconfigured)</h2>
+      <div class="small">
+        <div class="pill">Drop letters: <span class="mono">H, I, J, K, L, M, N, O, P, Q, U, V, W, X, Y, AA</span></div>
+        <p>
+          Filtering rule:
+          <br>- If “PPC Assist” would be deleted by the drop, filter first and remove rows where PPC Assist == "Y" (fallback to column Z if header missing).
+          <br>- Otherwise, drop columns first and then keep only rows where PPC Assist == "Y".
+        </p>
+      </div>
+    </section>
+  </div>
+</main>
+  </div>  <script>
+    // No dependencies: lightweight CSV parser/unparser (handles quotes per RFC 4180 basics)
+
+    function parseCSV(text, delimiter = ',') {
+      // Normalize newlines
+      text = text.replace(/\r\n/g, '\n').replace(/\r/g, '\n');
+      const rows = [];
+      let row = [];
+      let field = '';
+      let inQuotes = false;
+
+      for (let i = 0; i < text.length; i++) {
+        const ch = text[i];
+
+        if (inQuotes) {
+          if (ch === '"') {
+            // Lookahead for escaped quote
+            if (i + 1 < text.length && text[i + 1] === '"') {
+              field += '"';
+              i++;
+            } else {
+              inQuotes = false;
+            }
+          } else {
+            field += ch;
+          }
+        } else {
+          if (ch === '"') {
+            inQuotes = true;
+          } else if (ch === delimiter) {
+            row.push(field);
+            field = '';
+          } else if (ch === '\n') {
+            row.push(field);
+            rows.push(row);
+            row = [];
+            field = '';
+          } else {
+            field += ch;
+          }
+        }
+      }
+      // Final field/row
+      row.push(field);
+      rows.push(row);
+
+      // Remove possible trailing empty row(s) created by terminal newline
+      while (rows.length > 1 && rows[rows.length - 1].every(v => String(v || '').trim() === '')) {
+        rows.pop();
+      }
+      return rows;
+    }
+
+    function unparseCSV(rows, delimiter = ',') {
+      const escapeField = (v) => {
+        const s = v == null ? '' : String(v);
+        if (s.includes('"') || s.includes(delimiter) || s.includes('\n')) {
+          return '"' + s.replace(/"/g, '""') + '"';
+        }
+        return s;
+      };
+      return rows.map(r => r.map(escapeField).join(delimiter)).join('\n');
+    }
+
+    // Config
     const LETTERS_TO_DROP = ['H','I','J','K','L','M','N','O','P','Q','U','V','W','X','Y','AA'];
     const FILTER_HEADER_NAME = 'PPC Assist';
     const FILTER_VALUE = 'Y';
-    const PPC_LETTER_FALLBACK = 'Z'; // Used pre-drop if header not found
+    const PPC_LETTER_FALLBACK = 'Z'; // used when header "PPC Assist" is not found
 
     function excelColToZeroIndex(col) {
       let idx = 0;
@@ -100,33 +153,14 @@
         if (code < 65 || code > 90) throw new Error('Invalid column letter: ' + col);
         idx = idx * 26 + (code - 64);
       }
-      return idx - 1;
+      return idx - 1; // 0-based
     }
     const DROP_INDICES_0 = LETTERS_TO_DROP.map(excelColToZeroIndex);
 
-    const inputEl = document.getElementById('csv-input');
-    const statusEl = document.getElementById('status');
-    const processBtn = document.getElementById('process-btn');
-    const resetBtn = document.getElementById('reset-btn');
-    const downloadLink = document.getElementById('download-link');
-    const modeSelect = document.getElementById('ppc-first-mode');
-
-    let cleanedCsvBlobUrl = null;
-
-    function setStatus(msg, append=false) {
-      statusEl.textContent = append ? (statusEl.textContent + '\\n' + msg) : msg;
+    function setStatus(msg, append = false) {
+      const el = document.getElementById('status');
+      el.textContent = append ? (el.textContent + '\n' + msg) : msg;
     }
-
-    function resetState() {
-      inputEl.value = '';
-      setStatus('Waiting for CSV text…');
-      if (cleanedCsvBlobUrl) { URL.revokeObjectURL(cleanedCsvBlobUrl); cleanedCsvBlobUrl = null; }
-      downloadLink.style.display = 'none';
-      downloadLink.removeAttribute('href');
-      downloadLink.removeAttribute('download');
-    }
-
-    resetBtn.addEventListener('click', resetState);
 
     function trimOrEmpty(v) { return (v == null) ? '' : String(v).trim(); }
 
@@ -140,23 +174,31 @@
 
     function dropColumns(rows, dropIndices0) {
       return rows.map(row => {
-        if (!Array.isArray(row)) return row;
         const dropSet = new Set(dropIndices0.filter(i => i >= 0 && i < row.length));
-        return row.filter((_, idx) => !dropSet.has(idx));
+        const out = [];
+        for (let i = 0; i < row.length; i++) {
+          if (!dropSet.has(i)) out.push(row[i]);
+        }
+        return out;
       });
     }
 
-    function filterRows(rows, colIdx, value, mode) {
-      // mode: 'keep' -> keep rows where cell == value, 'remove' -> keep rows where cell != value
-      if (rows.length === 0 || colIdx < 0) return rows;
-      const header = rows[0];
-      const out = [header];
+    function filterRowsKeepEquals(rows, colIdx0, value) {
+      if (rows.length === 0 || colIdx0 < 0) return rows;
+      const out = [rows[0]];
       for (let r = 1; r < rows.length; r++) {
-        const row = rows[r];
-        if (!Array.isArray(row)) continue;
-        const cellVal = trimOrEmpty(row[colIdx]);
-        const match = (cellVal === value);
-        if ((mode === 'keep' && match) || (mode === 'remove' && !match)) out.push(row);
+        const cell = trimOrEmpty(rows[r][colIdx0]);
+        if (cell === value) out.push(rows[r]);
+      }
+      return out;
+    }
+
+    function filterRowsRemoveEquals(rows, colIdx0, value) {
+      if (rows.length === 0 || colIdx0 < 0) return rows;
+      const out = [rows[0]];
+      for (let r = 1; r < rows.length; r++) {
+        const cell = trimOrEmpty(rows[r][colIdx0]);
+        if (cell !== value) out.push(rows[r]);
       }
       return out;
     }
@@ -165,76 +207,103 @@
       let end = rows.length - 1;
       while (end >= 1) {
         const row = rows[end];
-        const nonEmpty = Array.isArray(row) && row.some(v => trimOrEmpty(v) !== '');
+        const nonEmpty = row.some(v => trimOrEmpty(v) !== '');
         if (nonEmpty) break;
         end--;
       }
       return rows.slice(0, end + 1);
     }
 
-    processBtn.addEventListener('click', () => {
-      const text = inputEl.value || '';
-      if (!text.trim()) {
-        setStatus('Please paste CSV content first.');
+    // UI behavior
+    const dz = document.getElementById('dropzone');
+    const fileInput = document.getElementById('file-input');
+    const processBtn = document.getElementById('process-btn');
+    const downloadLink = document.getElementById('download-link');
+    const resetBtn = document.getElementById('reset-btn');
+
+    let selectedFile = null;
+    let cleanedCsvBlobUrl = null;
+
+    function resetState() {
+      selectedFile = null;
+      if (cleanedCsvBlobUrl) { URL.revokeObjectURL(cleanedCsvBlobUrl); cleanedCsvBlobUrl = null; }
+      fileInput.value = '';
+      processBtn.disabled = true;
+      downloadLink.style.display = 'none';
+      downloadLink.removeAttribute('href');
+      downloadLink.removeAttribute('download');
+      setStatus('Waiting for file…');
+    }
+
+    function handleFiles(files) {
+      if (!files || !files.length) return;
+      const file = files[0];
+      const name = (file && file.name) ? file.name : 'input.csv';
+      if (!name.toLowerCase().endsWith('.csv')) {
+        setStatus('Please select a .csv file.');
         return;
       }
-      setStatus('Parsing CSV…');
+      selectedFile = file;
+      setStatus(`Selected: ${name} (${(file.size/1024).toFixed(1)} KB)`);
+      processBtn.disabled = false;
+      downloadLink.style.display = 'none';
+    }
+
+    dz.addEventListener('click', () => fileInput.click());
+    dz.addEventListener('keypress', (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); fileInput.click(); }});
+    dz.addEventListener('dragover', (e) => { e.preventDefault(); dz.classList.add('dragover'); });
+    dz.addEventListener('dragleave', () => dz.classList.remove('dragover'));
+    dz.addEventListener('drop', (e) => { e.preventDefault(); dz.classList.remove('dragover'); handleFiles(e.dataTransfer.files); });
+    fileInput.addEventListener('change', (e) => handleFiles(e.target.files));
+    resetBtn.addEventListener('click', resetState);
+
+    processBtn.addEventListener('click', async () => {
+      if (!selectedFile) return;
+      setStatus('Reading file…');
+      processBtn.disabled = true;
       try {
-        const parsed = Papa.parse(text, {
-          dynamicTyping: false,
-          skipEmptyLines: 'greedy'
-        });
+        const text = await selectedFile.text();
+        setStatus('Parsing CSV…', true);
 
-        if (parsed.errors && parsed.errors.length) {
-          setStatus(
-            `CSV parse warnings: ${parsed.errors.length}\n` +
-            parsed.errors.slice(0,3).map(e => `- Row ${e.row}: ${e.message}`).join('\n'),
-            true
-          );
-        }
-
-        let rows = parsed.data;
+        let rows = parseCSV(text, ',');
         if (!Array.isArray(rows) || rows.length === 0 || !Array.isArray(rows[0])) {
           setStatus('No usable rows found in CSV.');
+          processBtn.disabled = false;
           return;
         }
 
         const originalRowCount = rows.length;
         const header = rows[0];
 
-        // Determine PPC Assist column before dropping
+        // Determine PPC Assist index before dropping
         let ppcIdxOriginal = findHeaderIndex(header, FILTER_HEADER_NAME);
-        if (ppcIdxOriginal === -1 && PPC_LETTER_FALLBACK) {
-          const fb = excelColToZeroIndex(PPC_LETTER_FALLBACK);
-          if (fb >= 0 && fb < header.length) {
-            ppcIdxOriginal = fb;
-            setStatus(`Header "${FILTER_HEADER_NAME}" not found; using fallback column ${PPC_LETTER_FALLBACK} (index ${fb}).`, true);
+        if (ppcIdxOriginal === -1) {
+          const fallbackIdx = excelColToZeroIndex(PPC_LETTER_FALLBACK);
+          if (fallbackIdx >= 0 && fallbackIdx < header.length) {
+            ppcIdxOriginal = fallbackIdx;
+            setStatus(`Header "${FILTER_HEADER_NAME}" not found; using fallback column ${PPC_LETTER_FALLBACK} (index ${fallbackIdx}).`, true);
           } else {
             setStatus(`Header "${FILTER_HEADER_NAME}" not found, and fallback column ${PPC_LETTER_FALLBACK} is out of range.`, true);
           }
         }
 
         const willDropPpc = ppcIdxOriginal >= 0 && DROP_INDICES_0.includes(ppcIdxOriginal);
-        const firstMode = modeSelect.value; // 'remove' or 'keep'
 
         if (ppcIdxOriginal >= 0 && willDropPpc) {
-          // Filter first using original index, according to selected mode
-          const modeDesc = firstMode === 'remove'
-            ? 'Removing rows where PPC Assist == "Y" before dropping columns…'
-            : 'Keeping rows where PPC Assist == "Y" before dropping columns…';
-          setStatus(modeDesc, true);
-          rows = filterRows(rows, ppcIdxOriginal, FILTER_VALUE, firstMode);
+          // Your rule: if filtering is conducted first, delete rows that have Y in PPC Assist
+          setStatus('PPC Assist would be dropped; filtering first by removing rows with PPC Assist == "Y"…', true);
+          rows = filterRowsRemoveEquals(rows, ppcIdxOriginal, FILTER_VALUE);
           rows = dropColumns(rows, DROP_INDICES_0);
         } else {
-          // Drop columns first, then keep only rows where PPC Assist == 'Y'
+          // Otherwise, drop first, then keep only Y
           rows = dropColumns(rows, DROP_INDICES_0);
           const newHeader = rows[0];
           const ppcIdxAfter = findHeaderIndex(newHeader, FILTER_HEADER_NAME);
           if (ppcIdxAfter === -1) {
-            setStatus('Warning: "PPC Assist" column not found after dropping columns; no row filtering applied.', true);
+            setStatus('Warning: "PPC Assist" not found after dropping columns; no row filtering applied.', true);
           } else {
             setStatus('Keeping rows where PPC Assist == "Y"…', true);
-            rows = filterRows(rows, ppcIdxAfter, FILTER_VALUE, 'keep');
+            rows = filterRowsKeepEquals(rows, ppcIdxAfter, FILTER_VALUE);
           }
         }
 
@@ -243,22 +312,26 @@
         const keptRows = rows.length;
         setStatus(`Rows before: ${originalRowCount} | after: ${keptRows}`, true);
 
-        const csvText = Papa.unparse(rows);
+        const csvText = unparseCSV(rows, ',');
         const BOM = new Uint8Array([0xEF, 0xBB, 0xBF]); // Excel-friendly
         const blob = new Blob([BOM, csvText], { type: 'text/csv;charset=utf-8' });
 
         if (cleanedCsvBlobUrl) URL.revokeObjectURL(cleanedCsvBlobUrl);
         cleanedCsvBlobUrl = URL.createObjectURL(blob);
-
         downloadLink.href = cleanedCsvBlobUrl;
-        downloadLink.download = 'cleaned-filtered.csv';
+        downloadLink.download = 'cleaned-filtered-' + (selectedFile.name || 'output.csv');
         downloadLink.style.display = 'inline-flex';
 
         setStatus('Ready! Click "Download Cleaned CSV" to save your file.', true);
       } catch (err) {
         console.error(err);
         setStatus('Error: ' + (err && err.message ? err.message : String(err)));
+      } finally {
+        processBtn.disabled = false;
       }
     });
+
+    // Initialize
+    resetState();
   </script></body>
 </html>
