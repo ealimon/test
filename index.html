@@ -32,6 +32,10 @@
 .file-name { font-weight: 700; }
 .file-size { color: var(--muted); font-size: 13px; }
 
+.options { margin-top: 10px; font-size: 14px; }
+.options label { display: inline-flex; align-items: center; gap: 8px; cursor: pointer; }
+.options input[type="checkbox"] { transform: translateY(1px); }
+
 .progress-wrap { margin-top: 12px; }
 .progress-label { font-size: 13px; color: var(--muted); margin-bottom: 6px; }
 .progress { position: relative; height: 10px; background: #0f1930; border: 1px solid var(--border); border-radius: 999px; overflow: hidden; }
@@ -73,6 +77,13 @@ button[disabled] { opacity: 0.6; cursor: not-allowed; filter: grayscale(0.2); }
         <div id="file-size" class="file-size"></div>
       </div>
 
+      <div class="options">
+        <label>
+          <input id="remove-blanks" type="checkbox" checked />
+          Remove rows where PPC Assist is blank (whitespace-only counts as blank)
+        </label>
+      </div>
+
       <div class="progress-wrap">
         <div class="progress-label" id="progress-label">Idle</div>
         <div class="progress"><div id="progress-bar" class="progress-bar"></div></div>
@@ -92,8 +103,8 @@ button[disabled] { opacity: 0.6; cursor: not-allowed; filter: grayscale(0.2); }
         <div class="pill">Drop letters: <span class="mono">H, I, J, K, L, M, N, O, P, Q, U, V, W, X, Y, AA</span></div>
         <p>
           Filtering rule:
-          <br>- If “PPC Assist” would be deleted by the drop, filter first and remove rows where PPC Assist == "Y" (fallback to column Z if header missing).
-          <br>- Otherwise, drop columns first and then keep only rows where PPC Assist == "Y".
+          <br>- If “PPC Assist” would be deleted by the drop, filter first: remove rows where PPC Assist == "Y", and optionally remove blanks (checkbox).
+          <br>- Otherwise, drop columns first and then keep only rows where PPC Assist == "Y" (blanks are implicitly removed).
         </p>
       </div>
     </section>
@@ -197,6 +208,12 @@ button[disabled] { opacity: 0.6; cursor: not-allowed; filter: grayscale(0.2); }
       for (let r = 1; r < rows.length; r++) if (trimOrEmpty(rows[r][colIdx0]) !== value) out.push(rows[r]);
       return out;
     }
+    function filterRowsRemoveBlank(rows, colIdx0) {
+      if (rows.length === 0 || colIdx0 < 0) return rows;
+      const out = [rows[0]];
+      for (let r = 1; r < rows.length; r++) if (trimOrEmpty(rows[r][colIdx0]) !== '') out.push(rows[r]);
+      return out;
+    }
     function removeCompletelyEmptyTrailingRows(rows) {
       let end = rows.length - 1;
       while (end >= 1) {
@@ -214,6 +231,7 @@ button[disabled] { opacity: 0.6; cursor: not-allowed; filter: grayscale(0.2); }
     const processBtn = document.getElementById('process-btn');
     const downloadLink = document.getElementById('download-link');
     const resetBtn = document.getElementById('reset-btn');
+    const removeBlanksEl = document.getElementById('remove-blanks');
 
     let selectedFile = null;
     let cleanedCsvBlobUrl = null;
@@ -278,6 +296,8 @@ button[disabled] { opacity: 0.6; cursor: not-allowed; filter: grayscale(0.2); }
       statusEl.textContent = '';
 
       try {
+        const removeBlanks = !!removeBlanksEl.checked;
+
         logStatus('Reading file…'); setProgress(10);
         const text = await selectedFile.text();
         await sleep(200);
@@ -314,7 +334,12 @@ button[disabled] { opacity: 0.6; cursor: not-allowed; filter: grayscale(0.2); }
         const willDropPpc = ppcIdxOriginal >= 0 && DROP_INDICES_0.includes(ppcIdxOriginal);
 
         if (ppcIdxOriginal >= 0 && willDropPpc) {
-          logStatus('Applying filtering rules (remove rows with PPC Assist == "Y")…'); setProgress(55);
+          if (removeBlanks) {
+            logStatus('Removing rows where PPC Assist is blank…'); setProgress(50);
+            rows = filterRowsRemoveBlank(rows, ppcIdxOriginal);
+            await sleep(120);
+          }
+          logStatus('Removing rows where PPC Assist == "Y"…'); setProgress(removeBlanks ? 55 : 50);
           rows = filterRowsRemoveEquals(rows, ppcIdxOriginal, FILTER_VALUE);
           await sleep(150);
 
@@ -326,13 +351,17 @@ button[disabled] { opacity: 0.6; cursor: not-allowed; filter: grayscale(0.2); }
           rows = dropColumns(rows, DROP_INDICES_0);
           await sleep(150);
 
-          logStatus('Applying filtering rules (keep rows with PPC Assist == "Y")…'); setProgress(70);
+          logStatus('Applying filtering rules (keep rows where PPC Assist == "Y")…'); setProgress(70);
           const newHeader = rows[0];
           const ppcIdxAfter = findHeaderIndex(newHeader, FILTER_HEADER_NAME);
           if (ppcIdxAfter === -1) {
             logStatus('Warning: "PPC Assist" column not found after dropping columns; no row filtering applied.');
           } else {
+            // Keeping only Y implicitly drops blanks
             rows = filterRowsKeepEquals(rows, ppcIdxAfter, FILTER_VALUE);
+            if (removeBlanks) {
+              logStatus('Note: "Remove blanks" is implicitly satisfied since only PPC Assist = "Y" rows are kept.');
+            }
           }
           await sleep(150);
         }
