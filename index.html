@@ -1,7 +1,7 @@
 <!DOCTYPE html><html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <title>CSV Cleaner (Offline) – Drop Columns + Conditional PPC Assist Filter</title>
+  <title>CSV Cleaner (Offline) – Progress + Filename + Conditional PPC Assist Filter</title>
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <style>
     :root {
@@ -21,30 +21,42 @@
     .grid { display: grid; grid-template-columns: 1.2fr 1fr; gap: 20px; }
     @media (max-width: 980px) { .grid { grid-template-columns: 1fr; } }
     .card { background: linear-gradient(180deg, var(--panel), #0d1625); border: 1px solid var(--border); border-radius: 12px; padding: 16px; }
-    .card h2 { margin: 0 0 10px; font-size: 16px; font-weight: 700; }
-    .dropzone { border: 2px dashed #2a3b5e; border-radius: 12px; padding: 22px; text-align: center; background: rgba(32,44,72,0.35); cursor: pointer; }
-    .dropzone.dragover { border-color: var(--accent); background: rgba(79,118,253,0.12); }
-    .dropzone input[type="file"] { display: none; }
-    .dz-title { font-weight: 700; margin-bottom: 6px; }
-    .dz-sub { font-size: 13px; color: var(--muted); }
-    .status { margin-top: 12px; font-size: 14px; line-height: 1.45; background: #0d1526; border: 1px solid var(--border);
-      border-radius: 8px; padding: 10px 12px; color: var(--muted); max-height: 260px; overflow: auto; white-space: pre-wrap; }
-    .actions { display: flex; gap: 10px; margin-top: 14px; flex-wrap: wrap; }
-    button, .btn { appearance: none; border: 1px solid var(--border); background: linear-gradient(180deg, #16223a, #121b2f);
-      color: var(--text); font-weight: 600; padding: 10px 14px; border-radius: 10px; cursor: pointer; }
-    button.primary { background: linear-gradient(180deg, #2a4ff0, #2244d4); border-color: #3050ff; }
-    button.success { background: linear-gradient(180deg, #1e8449, #176d3b); border-color: #29a35a; }
-    button[disabled] { opacity: 0.6; cursor: not-allowed; filter: grayscale(0.2); }
-    .pill { display: inline-flex; align-items: center; gap: 8px; background: rgba(56,189,248,0.12); border: 1px solid rgba(56,189,248,0.35);
-      color: #c3e9ff; padding: 6px 10px; border-radius: 999px; font-size: 13px; font-weight: 600; }
-    .mono { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; }
-    .small { font-size: 12px; color: var(--muted); }
+    .card h2 { margin: 0 0 10px; font-size: 16px; font-weight: 700; }.dropzone { border: 2px dashed #2a3b5e; border-radius: 12px; padding: 22px; text-align: center; background: rgba(32,44,72,0.35); cursor: pointer; }
+.dropzone.dragover { border-color: var(--accent); background: rgba(79,118,253,0.12); }
+.dropzone input[type="file"] { display: none; }
+.dz-title { font-weight: 700; margin-bottom: 6px; }
+.dz-sub { font-size: 13px; color: var(--muted); }
+
+.fileinfo { margin-top: 10px; display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+.file-label { color: var(--muted); font-size: 13px; }
+.file-name { font-weight: 700; }
+.file-size { color: var(--muted); font-size: 13px; }
+
+.progress-wrap { margin-top: 12px; }
+.progress-label { font-size: 13px; color: var(--muted); margin-bottom: 6px; }
+.progress { position: relative; height: 10px; background: #0f1930; border: 1px solid var(--border); border-radius: 999px; overflow: hidden; }
+.progress-bar { position: absolute; left: 0; top: 0; bottom: 0; width: 0%; background: linear-gradient(90deg, #4f76fd, #38bdf8); transition: width 0.2s ease; }
+
+.status { margin-top: 12px; font-size: 14px; line-height: 1.45; background: #0d1526; border: 1px solid var(--border);
+  border-radius: 8px; padding: 10px 12px; color: var(--muted); max-height: 260px; overflow: auto; white-space: pre-wrap; }
+
+.actions { display: flex; gap: 10px; margin-top: 14px; flex-wrap: wrap; }
+button, .btn { appearance: none; border: 1px solid var(--border); background: linear-gradient(180deg, #16223a, #121b2f);
+  color: var(--text); font-weight: 600; padding: 10px 14px; border-radius: 10px; cursor: pointer; }
+button.primary { background: linear-gradient(180deg, #2a4ff0, #2244d4); border-color: #3050ff; }
+button.success { background: linear-gradient(180deg, #1e8449, #176d3b); border-color: #29a35a; }
+button[disabled] { opacity: 0.6; cursor: not-allowed; filter: grayscale(0.2); }
+
+.pill { display: inline-flex; align-items: center; gap: 8px; background: rgba(56,189,248,0.12); border: 1px solid rgba(56,189,248,0.35);
+  color: #c3e9ff; padding: 6px 10px; border-radius: 999px; font-size: 13px; font-weight: 600; }
+.mono { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; }
+.small { font-size: 12px; color: var(--muted); }
   </style>
 </head>
 <body>
   <div class="app">
     <header>
-      <h1>CSV Cleaner (Offline)</h1>
+      <h1>CSV Cleaner (Offline) – with Progress</h1>
       <p>Removes columns H, I, J, K, L, M, N, O, P, Q, U, V, W, X, Y, AA and applies conditional filtering on PPC Assist.</p>
     </header>
     <main>
@@ -55,7 +67,18 @@
             <div class="dz-title">Drop your CSV here</div>
             <div class="dz-sub">or click to select a file</div>
             <input id="file-input" type="file" accept=".csv,text/csv" />
-          </div>      <div class="status" id="status">Waiting for file…</div>
+          </div>      <div class="fileinfo" aria-live="polite">
+        <div class="file-label">Selected file:</div>
+        <div id="file-name" class="file-name">None</div>
+        <div id="file-size" class="file-size"></div>
+      </div>
+
+      <div class="progress-wrap">
+        <div class="progress-label" id="progress-label">Idle</div>
+        <div class="progress"><div id="progress-bar" class="progress-bar"></div></div>
+      </div>
+
+      <div class="status" id="status">Waiting for file…</div>
       <div class="actions">
         <button id="process-btn" class="primary" disabled>Process & Prepare Download</button>
         <a id="download-link" class="btn success" style="display:none" download>Download Cleaned CSV</a>
@@ -77,10 +100,8 @@
   </div>
 </main>
   </div>  <script>
-    // No dependencies: lightweight CSV parser/unparser (handles quotes per RFC 4180 basics)
-
+    // Lightweight CSV parser/unparser (RFC4180 basics)
     function parseCSV(text, delimiter = ',') {
-      // Normalize newlines
       text = text.replace(/\r\n/g, '\n').replace(/\r/g, '\n');
       const rows = [];
       let row = [];
@@ -89,55 +110,29 @@
 
       for (let i = 0; i < text.length; i++) {
         const ch = text[i];
-
         if (inQuotes) {
           if (ch === '"') {
-            // Lookahead for escaped quote
-            if (i + 1 < text.length && text[i + 1] === '"') {
-              field += '"';
-              i++;
-            } else {
-              inQuotes = false;
-            }
-          } else {
-            field += ch;
-          }
+            if (i + 1 < text.length && text[i + 1] === '"') { field += '"'; i++; }
+            else { inQuotes = false; }
+          } else { field += ch; }
         } else {
-          if (ch === '"') {
-            inQuotes = true;
-          } else if (ch === delimiter) {
-            row.push(field);
-            field = '';
-          } else if (ch === '\n') {
-            row.push(field);
-            rows.push(row);
-            row = [];
-            field = '';
-          } else {
-            field += ch;
-          }
+          if (ch === '"') inQuotes = true;
+          else if (ch === delimiter) { row.push(field); field = ''; }
+          else if (ch === '\n') { row.push(field); rows.push(row); row = []; field=''; }
+          else { field += ch; }
         }
       }
-      // Final field/row
-      row.push(field);
-      rows.push(row);
-
-      // Remove possible trailing empty row(s) created by terminal newline
-      while (rows.length > 1 && rows[rows.length - 1].every(v => String(v || '').trim() === '')) {
-        rows.pop();
-      }
+      row.push(field); rows.push(row);
+      while (rows.length > 1 && rows[rows.length - 1].every(v => String(v || '').trim() === '')) rows.pop();
       return rows;
     }
 
     function unparseCSV(rows, delimiter = ',') {
-      const escapeField = (v) => {
+      const esc = (v) => {
         const s = v == null ? '' : String(v);
-        if (s.includes('"') || s.includes(delimiter) || s.includes('\n')) {
-          return '"' + s.replace(/"/g, '""') + '"';
-        }
-        return s;
+        return (s.includes('"') || s.includes(delimiter) || s.includes('\n')) ? '"' + s.replace(/"/g, '""') + '"' : s;
       };
-      return rows.map(r => r.map(escapeField).join(delimiter)).join('\n');
+      return rows.map(r => r.map(esc).join(delimiter)).join('\n');
     }
 
     // Config
@@ -157,13 +152,24 @@
     }
     const DROP_INDICES_0 = LETTERS_TO_DROP.map(excelColToZeroIndex);
 
-    function setStatus(msg, append = false) {
-      const el = document.getElementById('status');
-      el.textContent = append ? (el.textContent + '\n' + msg) : msg;
+    // UI helpers
+    const statusEl = document.getElementById('status');
+    const progressBar = document.getElementById('progress-bar');
+    const progressLabel = document.getElementById('progress-label');
+    const fileNameEl = document.getElementById('file-name');
+    const fileSizeEl = document.getElementById('file-size');
+
+    function logStatus(msg) {
+      statusEl.textContent = statusEl.textContent ? (statusEl.textContent + '\n' + msg) : msg;
+      progressLabel.textContent = msg;
+    }
+
+    function setProgress(pct) {
+      const clamped = Math.max(0, Math.min(100, Math.round(pct)));
+      progressBar.style.width = clamped + '%';
     }
 
     function trimOrEmpty(v) { return (v == null) ? '' : String(v).trim(); }
-
     function findHeaderIndex(headerRow, name) {
       const target = trimOrEmpty(name);
       for (let i = 0; i < headerRow.length; i++) {
@@ -171,38 +177,26 @@
       }
       return -1;
     }
-
     function dropColumns(rows, dropIndices0) {
       return rows.map(row => {
         const dropSet = new Set(dropIndices0.filter(i => i >= 0 && i < row.length));
         const out = [];
-        for (let i = 0; i < row.length; i++) {
-          if (!dropSet.has(i)) out.push(row[i]);
-        }
+        for (let i = 0; i < row.length; i++) if (!dropSet.has(i)) out.push(row[i]);
         return out;
       });
     }
-
     function filterRowsKeepEquals(rows, colIdx0, value) {
       if (rows.length === 0 || colIdx0 < 0) return rows;
       const out = [rows[0]];
-      for (let r = 1; r < rows.length; r++) {
-        const cell = trimOrEmpty(rows[r][colIdx0]);
-        if (cell === value) out.push(rows[r]);
-      }
+      for (let r = 1; r < rows.length; r++) if (trimOrEmpty(rows[r][colIdx0]) === value) out.push(rows[r]);
       return out;
     }
-
     function filterRowsRemoveEquals(rows, colIdx0, value) {
       if (rows.length === 0 || colIdx0 < 0) return rows;
       const out = [rows[0]];
-      for (let r = 1; r < rows.length; r++) {
-        const cell = trimOrEmpty(rows[r][colIdx0]);
-        if (cell !== value) out.push(rows[r]);
-      }
+      for (let r = 1; r < rows.length; r++) if (trimOrEmpty(rows[r][colIdx0]) !== value) out.push(rows[r]);
       return out;
     }
-
     function removeCompletelyEmptyTrailingRows(rows) {
       let end = rows.length - 1;
       while (end >= 1) {
@@ -214,7 +208,7 @@
       return rows.slice(0, end + 1);
     }
 
-    // UI behavior
+    // UI wiring
     const dz = document.getElementById('dropzone');
     const fileInput = document.getElementById('file-input');
     const processBtn = document.getElementById('process-btn');
@@ -224,6 +218,13 @@
     let selectedFile = null;
     let cleanedCsvBlobUrl = null;
 
+    function formatSize(bytes) {
+      if (!Number.isFinite(bytes)) return '';
+      if (bytes < 1024) return `${bytes} B`;
+      if (bytes < 1024 * 1024) return `${(bytes/1024).toFixed(1)} KB`;
+      return `${(bytes/(1024*1024)).toFixed(1)} MB`;
+    }
+
     function resetState() {
       selectedFile = null;
       if (cleanedCsvBlobUrl) { URL.revokeObjectURL(cleanedCsvBlobUrl); cleanedCsvBlobUrl = null; }
@@ -232,7 +233,11 @@
       downloadLink.style.display = 'none';
       downloadLink.removeAttribute('href');
       downloadLink.removeAttribute('download');
-      setStatus('Waiting for file…');
+      statusEl.textContent = 'Waiting for file…';
+      progressLabel.textContent = 'Idle';
+      setProgress(0);
+      fileNameEl.textContent = 'None';
+      fileSizeEl.textContent = '';
     }
 
     function handleFiles(files) {
@@ -240,11 +245,17 @@
       const file = files[0];
       const name = (file && file.name) ? file.name : 'input.csv';
       if (!name.toLowerCase().endsWith('.csv')) {
-        setStatus('Please select a .csv file.');
+        statusEl.textContent = 'Please select a .csv file.';
+        fileNameEl.textContent = 'None';
+        fileSizeEl.textContent = '';
         return;
       }
       selectedFile = file;
-      setStatus(`Selected: ${name} (${(file.size/1024).toFixed(1)} KB)`);
+      fileNameEl.textContent = name;
+      fileSizeEl.textContent = `(${formatSize(file.size)})`;
+      statusEl.textContent = `Selected: ${name} ${fileSizeEl.textContent}`;
+      progressLabel.textContent = 'Ready';
+      setProgress(0);
       processBtn.disabled = false;
       downloadLink.style.display = 'none';
     }
@@ -257,22 +268,34 @@
     fileInput.addEventListener('change', (e) => handleFiles(e.target.files));
     resetBtn.addEventListener('click', resetState);
 
+    // Sequenced processing with progress messages
+    function sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
+
     processBtn.addEventListener('click', async () => {
       if (!selectedFile) return;
-      setStatus('Reading file…');
       processBtn.disabled = true;
-      try {
-        const text = await selectedFile.text();
-        setStatus('Parsing CSV…', true);
+      setProgress(0);
+      statusEl.textContent = '';
 
+      try {
+        logStatus('Reading file…'); setProgress(10);
+        const text = await selectedFile.text();
+        await sleep(200);
+
+        logStatus('Parsing CSV…'); setProgress(25);
         let rows = parseCSV(text, ',');
+        await sleep(200);
+
         if (!Array.isArray(rows) || rows.length === 0 || !Array.isArray(rows[0])) {
-          setStatus('No usable rows found in CSV.');
+          logStatus('No usable rows found in CSV.');
           processBtn.disabled = false;
           return;
         }
 
         const originalRowCount = rows.length;
+
+        logStatus('Analyzing headers…'); setProgress(40);
+        await sleep(150);
         const header = rows[0];
 
         // Determine PPC Assist index before dropping
@@ -281,51 +304,65 @@
           const fallbackIdx = excelColToZeroIndex(PPC_LETTER_FALLBACK);
           if (fallbackIdx >= 0 && fallbackIdx < header.length) {
             ppcIdxOriginal = fallbackIdx;
-            setStatus(`Header "${FILTER_HEADER_NAME}" not found; using fallback column ${PPC_LETTER_FALLBACK} (index ${fallbackIdx}).`, true);
+            logStatus(`Header "${FILTER_HEADER_NAME}" not found; using fallback column ${PPC_LETTER_FALLBACK} (index ${fallbackIdx}).`);
           } else {
-            setStatus(`Header "${FILTER_HEADER_NAME}" not found, and fallback column ${PPC_LETTER_FALLBACK} is out of range.`, true);
+            logStatus(`Header "${FILTER_HEADER_NAME}" not found, and fallback column ${PPC_LETTER_FALLBACK} is out of range.`);
           }
         }
+        await sleep(150);
 
         const willDropPpc = ppcIdxOriginal >= 0 && DROP_INDICES_0.includes(ppcIdxOriginal);
 
         if (ppcIdxOriginal >= 0 && willDropPpc) {
-          // Your rule: if filtering is conducted first, delete rows that have Y in PPC Assist
-          setStatus('PPC Assist would be dropped; filtering first by removing rows with PPC Assist == "Y"…', true);
+          logStatus('Applying filtering rules (remove rows with PPC Assist == "Y")…'); setProgress(55);
           rows = filterRowsRemoveEquals(rows, ppcIdxOriginal, FILTER_VALUE);
+          await sleep(150);
+
+          logStatus('Dropping specified columns…'); setProgress(70);
           rows = dropColumns(rows, DROP_INDICES_0);
+          await sleep(150);
         } else {
-          // Otherwise, drop first, then keep only Y
+          logStatus('Dropping specified columns…'); setProgress(55);
           rows = dropColumns(rows, DROP_INDICES_0);
+          await sleep(150);
+
+          logStatus('Applying filtering rules (keep rows with PPC Assist == "Y")…'); setProgress(70);
           const newHeader = rows[0];
           const ppcIdxAfter = findHeaderIndex(newHeader, FILTER_HEADER_NAME);
           if (ppcIdxAfter === -1) {
-            setStatus('Warning: "PPC Assist" not found after dropping columns; no row filtering applied.', true);
+            logStatus('Warning: "PPC Assist" column not found after dropping columns; no row filtering applied.');
           } else {
-            setStatus('Keeping rows where PPC Assist == "Y"…', true);
             rows = filterRowsKeepEquals(rows, ppcIdxAfter, FILTER_VALUE);
           }
+          await sleep(150);
         }
 
+        logStatus('Removing empty trailing rows…'); setProgress(80);
         rows = removeCompletelyEmptyTrailingRows(rows);
+        await sleep(150);
 
-        const keptRows = rows.length;
-        setStatus(`Rows before: ${originalRowCount} | after: ${keptRows}`, true);
-
+        logStatus('Preparing download…'); setProgress(90);
         const csvText = unparseCSV(rows, ',');
         const BOM = new Uint8Array([0xEF, 0xBB, 0xBF]); // Excel-friendly
         const blob = new Blob([BOM, csvText], { type: 'text/csv;charset=utf-8' });
 
         if (cleanedCsvBlobUrl) URL.revokeObjectURL(cleanedCsvBlobUrl);
         cleanedCsvBlobUrl = URL.createObjectURL(blob);
+
+        const keptRows = rows.length;
+        logStatus(`Rows before: ${originalRowCount} | after: ${keptRows}`);
+        setProgress(100);
+
+        const baseName = selectedFile.name || 'output.csv';
         downloadLink.href = cleanedCsvBlobUrl;
-        downloadLink.download = 'cleaned-filtered-' + (selectedFile.name || 'output.csv');
+        downloadLink.download = 'cleaned-filtered-' + baseName;
+        downloadLink.textContent = `Download Cleaned CSV (cleaned-filtered-${baseName})`;
         downloadLink.style.display = 'inline-flex';
 
-        setStatus('Ready! Click "Download Cleaned CSV" to save your file.', true);
+        logStatus('Ready! Click "Download Cleaned CSV" to save your file.');
       } catch (err) {
         console.error(err);
-        setStatus('Error: ' + (err && err.message ? err.message : String(err)));
+        logStatus('Error: ' + (err && err.message ? err.message : String(err)));
       } finally {
         processBtn.disabled = false;
       }
