@@ -1,7 +1,7 @@
 <!DOCTYPE html><html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <title>CSV Cleaner (Offline) – Progress + Filename + Conditional PPC Assist Filter</title>
+  <title>CSV Cleaner (Offline) – Filter Rows First (Blank Z) Then Drop Columns</title>
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <style>
     :root {
@@ -32,9 +32,10 @@
 .file-name { font-weight: 700; }
 .file-size { color: var(--muted); font-size: 13px; }
 
-.options { margin-top: 10px; font-size: 14px; }
+.options { margin-top: 10px; font-size: 14px; display: grid; gap: 8px; }
 .options label { display: inline-flex; align-items: center; gap: 8px; cursor: pointer; }
-.options input[type="checkbox"] { transform: translateY(1px); }
+.options input[type="checkbox"], .options select { transform: translateY(1px); }
+select { background: #0f1830; color: var(--text); border: 1px solid var(--border); border-radius: 6px; padding: 6px 8px; }
 
 .progress-wrap { margin-top: 12px; }
 .progress-label { font-size: 13px; color: var(--muted); margin-bottom: 6px; }
@@ -60,8 +61,8 @@ button[disabled] { opacity: 0.6; cursor: not-allowed; filter: grayscale(0.2); }
 <body>
   <div class="app">
     <header>
-      <h1>CSV Cleaner (Offline) – with Progress</h1>
-      <p>Removes columns H, I, J, K, L, M, N, O, P, Q, U, V, W, X, Y, AA and applies conditional filtering on PPC Assist.</p>
+      <h1>CSV Cleaner (Offline) – Filter Rows First</h1>
+      <p>Filters rows by PPC Assist and blank column Z, then removes columns H, I, J, K, L, M, N, O, P, Q, U, V, W, X, Y, AA.</p>
     </header>
     <main>
       <div class="grid">
@@ -79,9 +80,21 @@ button[disabled] { opacity: 0.6; cursor: not-allowed; filter: grayscale(0.2); }
 
       <div class="options">
         <label>
-          <input id="remove-blanks" type="checkbox" checked />
-          Remove rows where PPC Assist is blank (whitespace-only counts as blank)
+          <input id="remove-blank-z" type="checkbox" checked />
+          Remove rows where column Z is blank (whitespace counts as blank)
         </label>
+        <label>
+          <input id="remove-blanks-ppc" type="checkbox" checked />
+          Remove rows where PPC Assist is blank
+        </label>
+        <label>
+          PPC Assist filter:
+          <select id="filter-mode">
+            <option value="remove">Remove rows where PPC Assist == "Y"</option>
+            <option value="keep" selected>Keep only rows where PPC Assist == "Y"</option>
+          </select>
+        </label>
+        <div class="small">Order is always: filter rows first (Z blank removal, PPC blank removal, PPC Y rule), then drop columns.</div>
       </div>
 
       <div class="progress-wrap">
@@ -98,27 +111,22 @@ button[disabled] { opacity: 0.6; cursor: not-allowed; filter: grayscale(0.2); }
     </section>
 
     <section class="card">
-      <h2>2) Rules (preconfigured)</h2>
+      <h2>2) Rules</h2>
       <div class="small">
         <div class="pill">Drop letters: <span class="mono">H, I, J, K, L, M, N, O, P, Q, U, V, W, X, Y, AA</span></div>
         <p>
-          Filtering rule:
-          <br>- If “PPC Assist” would be deleted by the drop, filter first: remove rows where PPC Assist == "Y", and optionally remove blanks (checkbox).
-          <br>- Otherwise, drop columns first and then keep only rows where PPC Assist == "Y" (blanks are implicitly removed).
+          Filtering looks for the header "PPC Assist". If not found, it falls back to the physical column Z for PPC filtering; column Z blank removal always uses the physical Z column before any columns are removed.
         </p>
       </div>
     </section>
   </div>
 </main>
   </div>  <script>
-    // Lightweight CSV parser/unparser (RFC4180 basics)
+    // Lightweight CSV parser/unparser
     function parseCSV(text, delimiter = ',') {
       text = text.replace(/\r\n/g, '\n').replace(/\r/g, '\n');
       const rows = [];
-      let row = [];
-      let field = '';
-      let inQuotes = false;
-
+      let row = [], field = '', inQuotes = false;
       for (let i = 0; i < text.length; i++) {
         const ch = text[i];
         if (inQuotes) {
@@ -129,7 +137,7 @@ button[disabled] { opacity: 0.6; cursor: not-allowed; filter: grayscale(0.2); }
         } else {
           if (ch === '"') inQuotes = true;
           else if (ch === delimiter) { row.push(field); field = ''; }
-          else if (ch === '\n') { row.push(field); rows.push(row); row = []; field=''; }
+          else if (ch === '\n') { row.push(field); rows.push(row); row = []; field = ''; }
           else { field += ch; }
         }
       }
@@ -137,7 +145,6 @@ button[disabled] { opacity: 0.6; cursor: not-allowed; filter: grayscale(0.2); }
       while (rows.length > 1 && rows[rows.length - 1].every(v => String(v || '').trim() === '')) rows.pop();
       return rows;
     }
-
     function unparseCSV(rows, delimiter = ',') {
       const esc = (v) => {
         const s = v == null ? '' : String(v);
@@ -150,9 +157,10 @@ button[disabled] { opacity: 0.6; cursor: not-allowed; filter: grayscale(0.2); }
     const LETTERS_TO_DROP = ['H','I','J','K','L','M','N','O','P','Q','U','V','W','X','Y','AA'];
     const FILTER_HEADER_NAME = 'PPC Assist';
     const FILTER_VALUE = 'Y';
-    const PPC_LETTER_FALLBACK = 'Z'; // used when header "PPC Assist" is not found
+    const PPC_LETTER_FALLBACK = 'Z'; // fallback if header not found
+    const Z_INDEX_0 = letterToZeroIndex('Z'); // physical column Z index before dropping columns
 
-    function excelColToZeroIndex(col) {
+    function letterToZeroIndex(col) {
       let idx = 0;
       for (const ch of col.toUpperCase()) {
         const code = ch.charCodeAt(0);
@@ -161,7 +169,7 @@ button[disabled] { opacity: 0.6; cursor: not-allowed; filter: grayscale(0.2); }
       }
       return idx - 1; // 0-based
     }
-    const DROP_INDICES_0 = LETTERS_TO_DROP.map(excelColToZeroIndex);
+    const DROP_INDICES_0 = LETTERS_TO_DROP.map(letterToZeroIndex);
 
     // UI helpers
     const statusEl = document.getElementById('status');
@@ -169,17 +177,18 @@ button[disabled] { opacity: 0.6; cursor: not-allowed; filter: grayscale(0.2); }
     const progressLabel = document.getElementById('progress-label');
     const fileNameEl = document.getElementById('file-name');
     const fileSizeEl = document.getElementById('file-size');
+    const filterModeEl = document.getElementById('filter-mode');
+    const removeBlanksPpcEl = document.getElementById('remove-blanks-ppc');
+    const removeBlankZEl = document.getElementById('remove-blank-z');
 
     function logStatus(msg) {
       statusEl.textContent = statusEl.textContent ? (statusEl.textContent + '\n' + msg) : msg;
       progressLabel.textContent = msg;
     }
-
     function setProgress(pct) {
       const clamped = Math.max(0, Math.min(100, Math.round(pct)));
       progressBar.style.width = clamped + '%';
     }
-
     function trimOrEmpty(v) { return (v == null) ? '' : String(v).trim(); }
     function findHeaderIndex(headerRow, name) {
       const target = trimOrEmpty(name);
@@ -208,7 +217,7 @@ button[disabled] { opacity: 0.6; cursor: not-allowed; filter: grayscale(0.2); }
       for (let r = 1; r < rows.length; r++) if (trimOrEmpty(rows[r][colIdx0]) !== value) out.push(rows[r]);
       return out;
     }
-    function filterRowsRemoveBlank(rows, colIdx0) {
+    function filterRowsRemoveBlankAtIndex(rows, colIdx0) {
       if (rows.length === 0 || colIdx0 < 0) return rows;
       const out = [rows[0]];
       for (let r = 1; r < rows.length; r++) if (trimOrEmpty(rows[r][colIdx0]) !== '') out.push(rows[r]);
@@ -231,7 +240,6 @@ button[disabled] { opacity: 0.6; cursor: not-allowed; filter: grayscale(0.2); }
     const processBtn = document.getElementById('process-btn');
     const downloadLink = document.getElementById('download-link');
     const resetBtn = document.getElementById('reset-btn');
-    const removeBlanksEl = document.getElementById('remove-blanks');
 
     let selectedFile = null;
     let cleanedCsvBlobUrl = null;
@@ -242,7 +250,6 @@ button[disabled] { opacity: 0.6; cursor: not-allowed; filter: grayscale(0.2); }
       if (bytes < 1024 * 1024) return `${(bytes/1024).toFixed(1)} KB`;
       return `${(bytes/(1024*1024)).toFixed(1)} MB`;
     }
-
     function resetState() {
       selectedFile = null;
       if (cleanedCsvBlobUrl) { URL.revokeObjectURL(cleanedCsvBlobUrl); cleanedCsvBlobUrl = null; }
@@ -257,7 +264,6 @@ button[disabled] { opacity: 0.6; cursor: not-allowed; filter: grayscale(0.2); }
       fileNameEl.textContent = 'None';
       fileSizeEl.textContent = '';
     }
-
     function handleFiles(files) {
       if (!files || !files.length) return;
       const file = files[0];
@@ -286,7 +292,6 @@ button[disabled] { opacity: 0.6; cursor: not-allowed; filter: grayscale(0.2); }
     fileInput.addEventListener('change', (e) => handleFiles(e.target.files));
     resetBtn.addEventListener('click', resetState);
 
-    // Sequenced processing with progress messages
     function sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
 
     processBtn.addEventListener('click', async () => {
@@ -296,81 +301,78 @@ button[disabled] { opacity: 0.6; cursor: not-allowed; filter: grayscale(0.2); }
       statusEl.textContent = '';
 
       try {
-        const removeBlanks = !!removeBlanksEl.checked;
-
         logStatus('Reading file…'); setProgress(10);
         const text = await selectedFile.text();
-        await sleep(200);
+        await sleep(150);
 
         logStatus('Parsing CSV…'); setProgress(25);
         let rows = parseCSV(text, ',');
-        await sleep(200);
+        await sleep(150);
 
         if (!Array.isArray(rows) || rows.length === 0 || !Array.isArray(rows[0])) {
           logStatus('No usable rows found in CSV.');
           processBtn.disabled = false;
           return;
         }
-
         const originalRowCount = rows.length;
 
         logStatus('Analyzing headers…'); setProgress(40);
-        await sleep(150);
         const header = rows[0];
 
-        // Determine PPC Assist index before dropping
-        let ppcIdxOriginal = findHeaderIndex(header, FILTER_HEADER_NAME);
-        if (ppcIdxOriginal === -1) {
-          const fallbackIdx = excelColToZeroIndex(PPC_LETTER_FALLBACK);
-          if (fallbackIdx >= 0 && fallbackIdx < header.length) {
-            ppcIdxOriginal = fallbackIdx;
-            logStatus(`Header "${FILTER_HEADER_NAME}" not found; using fallback column ${PPC_LETTER_FALLBACK} (index ${fallbackIdx}).`);
+        // Resolve PPC Assist index: header name first, then fallback to physical Z
+        let ppcIdx = findHeaderIndex(header, FILTER_HEADER_NAME);
+        if (ppcIdx === -1) {
+          if (Z_INDEX_0 >= 0 && Z_INDEX_0 < header.length) {
+            ppcIdx = Z_INDEX_0;
+            logStatus(`Header "${FILTER_HEADER_NAME}" not found; using fallback column Z (index ${Z_INDEX_0}).`);
           } else {
-            logStatus(`Header "${FILTER_HEADER_NAME}" not found, and fallback column ${PPC_LETTER_FALLBACK} is out of range.`);
+            logStatus(`Header "${FILTER_HEADER_NAME}" not found, and column Z is out of range. PPC filtering will be skipped.`);
           }
         }
-        await sleep(150);
+        await sleep(120);
 
-        const willDropPpc = ppcIdxOriginal >= 0 && DROP_INDICES_0.includes(ppcIdxOriginal);
-
-        if (ppcIdxOriginal >= 0 && willDropPpc) {
-          if (removeBlanks) {
-            logStatus('Removing rows where PPC Assist is blank…'); setProgress(50);
-            rows = filterRowsRemoveBlank(rows, ppcIdxOriginal);
+        // Always filter rows first
+        const removeBlankZ = !!removeBlankZEl.checked;
+        if (removeBlankZ) {
+          if (Z_INDEX_0 >= 0 && Z_INDEX_0 < header.length) {
+            logStatus('Removing rows where column Z is blank…'); setProgress(50);
+            rows = filterRowsRemoveBlankAtIndex(rows, Z_INDEX_0);
             await sleep(120);
-          }
-          logStatus('Removing rows where PPC Assist == "Y"…'); setProgress(removeBlanks ? 55 : 50);
-          rows = filterRowsRemoveEquals(rows, ppcIdxOriginal, FILTER_VALUE);
-          await sleep(150);
-
-          logStatus('Dropping specified columns…'); setProgress(70);
-          rows = dropColumns(rows, DROP_INDICES_0);
-          await sleep(150);
-        } else {
-          logStatus('Dropping specified columns…'); setProgress(55);
-          rows = dropColumns(rows, DROP_INDICES_0);
-          await sleep(150);
-
-          logStatus('Applying filtering rules (keep rows where PPC Assist == "Y")…'); setProgress(70);
-          const newHeader = rows[0];
-          const ppcIdxAfter = findHeaderIndex(newHeader, FILTER_HEADER_NAME);
-          if (ppcIdxAfter === -1) {
-            logStatus('Warning: "PPC Assist" column not found after dropping columns; no row filtering applied.');
           } else {
-            // Keeping only Y implicitly drops blanks
-            rows = filterRowsKeepEquals(rows, ppcIdxAfter, FILTER_VALUE);
-            if (removeBlanks) {
-              logStatus('Note: "Remove blanks" is implicitly satisfied since only PPC Assist = "Y" rows are kept.');
-            }
+            logStatus('Column Z is out of range; cannot remove rows with blank Z.');
           }
-          await sleep(150);
         }
 
-        logStatus('Removing empty trailing rows…'); setProgress(80);
-        rows = removeCompletelyEmptyTrailingRows(rows);
-        await sleep(150);
+        const removePpcBlanks = !!removeBlanksPpcEl.checked;
+        if (removePpcBlanks && ppcIdx >= 0) {
+          logStatus('Removing rows where PPC Assist is blank…'); setProgress(57);
+          rows = filterRowsRemoveBlankAtIndex(rows, ppcIdx);
+          await sleep(120);
+        }
 
-        logStatus('Preparing download…'); setProgress(90);
+        const mode = filterModeEl.value; // 'remove' or 'keep'
+        if (ppcIdx >= 0) {
+          if (mode === 'remove') {
+            logStatus('Removing rows where PPC Assist == "Y"…'); setProgress(64);
+            rows = filterRowsRemoveEquals(rows, ppcIdx, FILTER_VALUE);
+          } else {
+            logStatus('Keeping only rows where PPC Assist == "Y"…'); setProgress(64);
+            rows = filterRowsKeepEquals(rows, ppcIdx, FILTER_VALUE);
+          }
+          await sleep(120);
+        }
+
+        // Drop columns after filtering
+        logStatus('Dropping specified columns…'); setProgress(75);
+        rows = dropColumns(rows, DROP_INDICES_0);
+        await sleep(120);
+
+        // Cleanup and output
+        logStatus('Removing empty trailing rows…'); setProgress(85);
+        rows = removeCompletelyEmptyTrailingRows(rows);
+        await sleep(120);
+
+        logStatus('Preparing download…'); setProgress(95);
         const csvText = unparseCSV(rows, ',');
         const BOM = new Uint8Array([0xEF, 0xBB, 0xBF]); // Excel-friendly
         const blob = new Blob([BOM, csvText], { type: 'text/csv;charset=utf-8' });
